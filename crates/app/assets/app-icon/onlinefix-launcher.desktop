@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=OnlineFix Launcher
+Comment=Run Windows games with OnlineFix and FreeTP multiplayer fixes through Proton
+Exec=onlinefix-launcher
+Icon=onlinefix-launcher
+Terminal=false
+Categories=Game;
+StartupWMClass=onlinefix-launcher

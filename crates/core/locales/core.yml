@@ -1,0 +1,16 @@
+_version: 2
+err.no_platform_dirs:
+  en: "could not determine the user folders"
+  ru: "не удалось определить пользовательские папки"
+err.io:
+  en: "I/O error at %{path}: %{source}"
+  ru: "ошибка ввода-вывода (%{path}): %{source}"
+err.settings_parse:
+  en: "could not read settings from %{path}: %{source}"
+  ru: "не удалось прочитать настройки из %{path}: %{source}"
+err.settings_serialize:
+  en: "could not write settings: %{error}"
+  ru: "не удалось записать настройки: %{error}"
+err.runtime:
+  en: "could not start the background runtime: %{error}"
+  ru: "не удалось запустить фоновую среду: %{error}"

@@ -1,0 +1,109 @@
+_version: 2
+app.tagline:
+  en: "Games with multiplayer fixes"
+  ru: "Игры с сетевыми фиксами"
+app.settings_load_error:
+  en: "%{error}. Using defaults; saving will overwrite the file."
+  ru: "%{error}. Используются настройки по умолчанию; сохранение перезапишет файл."
+nav.main:
+  en: "Main"
+  ru: "Основное"
+tab.library:
+  en: "Library"
+  ru: "Библиотека"
+tab.proton:
+  en: "Proton"
+  ru: "Proton"
+tab.settings:
+  en: "Settings"
+  ru: "Настройки"
+tab.logs:
+  en: "Logs"
+  ru: "Логи"
+common.open_folder:
+  en: "Open folder"
+  ru: "Открыть папку"
+lib.empty:
+  en: "No games yet"
+  ru: "Игр пока нет"
+lib.empty_hint:
+  en: "Games with OnlineFix or FreeTP fixes you add will show up here."
+  ru: "Здесь появятся добавленные игры с фиксами OnlineFix или FreeTP."
+proton.empty:
+  en: "No Proton builds yet"
+  ru: "Сборок Proton пока нет"
+proton.empty_hint:
+  en: "GE-Proton downloads and the builds Steam already has will be listed here."
+  ru: "Здесь будут скачанные GE-Proton и сборки, которые уже есть в Steam."
+set.cat_appearance:
+  en: "Appearance and language"
+  ru: "Вид и язык"
+set.cat_general:
+  en: "General"
+  ru: "Общие"
+set.instant_hint:
+  en: "These apply and save right away."
+  ru: "Применяются и сохраняются сразу."
+set.language:
+  en: "Language"
+  ru: "Язык"
+set.language_system:
+  en: "System"
+  ru: "Системный"
+set.scale:
+  en: "Interface scale"
+  ru: "Масштаб интерфейса"
+set.scale_reset:
+  en: "Reset"
+  ru: "Сбросить"
+set.theme:
+  en: "Theme"
+  ru: "Тема"
+set.theme_system:
+  en: "System"
+  ru: "Системная"
+set.dark_scheme:
+  en: "Dark scheme"
+  ru: "Тёмная схема"
+set.light_scheme:
+  en: "Light scheme"
+  ru: "Светлая схема"
+set.scheme_default:
+  en: "Default"
+  ru: "Стандартная"
+set.updates:
+  en: "Updates"
+  ru: "Обновления"
+set.check_updates:
+  en: "Check for a new version at start"
+  ru: "Проверять новую версию при запуске"
+logs.everything:
+  en: "Everything"
+  ru: "Всё"
+logs.debug:
+  en: "Debug and up"
+  ru: "Отладка и выше"
+logs.info:
+  en: "Info and up"
+  ru: "Инфо и выше"
+logs.warnings:
+  en: "Warnings and up"
+  ru: "Предупреждения и выше"
+logs.errors:
+  en: "Errors"
+  ru: "Ошибки"
+logs.count:
+  en: "%{n} line(s)"
+  ru: "строк: %{n}"
+logs.button_errors:
+  en: "Logs (%{n})"
+  ru: "Логи (%{n})"
+logs.button_hint:
+  en: "Recent log lines. Turns red when something fails."
+  ru: "Последние строки лога. Кнопка краснеет, если что-то пошло не так."
+upd.available:
+  en: "Version %{version} is out"
+  ru: "Вышла версия %{version}"
+upd.hint:
+  en: "Open the release page on GitHub"
+  ru: "Открыть страницу релиза на GitHub"
