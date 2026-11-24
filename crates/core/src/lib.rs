@@ -16,6 +16,7 @@ pub mod patch;
 pub mod paths;
 pub mod proton;
 pub mod proton_releases;
+pub mod saves;
 pub mod settings;
 pub mod steam;
 pub mod tools;

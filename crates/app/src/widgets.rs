@@ -60,3 +60,14 @@ pub fn soft_tag(color: Hsla, text: String) -> Tag {
 		.small()
 		.child(text)
 }
+
+/// `1.4 GB`, `350 MB`, `12 KB`, in decimal units like file managers show.
+pub fn format_size(bytes: u64) -> String {
+	let b = bytes as f64;
+	match bytes {
+		0..1_000 => format!("{bytes} B"),
+		1_000..1_000_000 => format!("{:.0} KB", b / 1e3),
+		1_000_000..1_000_000_000 => format!("{:.0} MB", b / 1e6),
+		_ => format!("{:.1} GB", b / 1e9),
+	}
+}

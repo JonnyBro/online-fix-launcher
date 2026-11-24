@@ -68,6 +68,11 @@ impl AppPaths {
 		self.data_dir.join("prefixes")
 	}
 
+	/// Save backups, a folder per game name.
+	pub fn backups_dir(&self) -> PathBuf {
+		self.data_dir.join("backups")
+	}
+
 	/// Covers and icons, a folder per game.
 	pub fn art_dir(&self) -> PathBuf {
 		self.data_dir.join("art")

@@ -8,10 +8,17 @@ use gpui_kit::{AssetSource, Result, SharedString};
 // Lucide icon the app shows has to be listed here or it renders blank.
 icon_assets!(ExtraIcons, [Gamepad2, Wine]);
 
+/// The launcher's own icon, also what the `.desktop` file points at.
+pub const APP_ICON: &str = "app-icon.svg";
+const APP_ICON_SVG: &[u8] = include_bytes!("../assets/app-icon/onlinefix-launcher.svg");
+
 pub struct AppAssets;
 
 impl AssetSource for AppAssets {
 	fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
+		if path == APP_ICON {
+			return Ok(Some(Cow::Borrowed(APP_ICON_SVG)));
+		}
 		match ExtraIcons.load(path)? {
 			Some(bytes) => Ok(Some(bytes)),
 			None => Assets.load(path),

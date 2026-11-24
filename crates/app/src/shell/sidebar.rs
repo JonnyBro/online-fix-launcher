@@ -14,21 +14,7 @@ impl Shell {
 			h_flex()
 				.w_full()
 				.gap_2()
-				.child(
-					div()
-						.size_8()
-						.flex_shrink_0()
-						.rounded(theme.radius)
-						.bg(theme.primary)
-						.flex()
-						.items_center()
-						.justify_center()
-						.child(
-							Icon::from(AppIcon::Library)
-								.small()
-								.text_color(theme.primary_foreground),
-						),
-				)
+				.child(img(crate::icons::APP_ICON).size_8().flex_shrink_0())
 				.child(
 					v_flex()
 						.flex_1()

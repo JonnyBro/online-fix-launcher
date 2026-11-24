@@ -133,6 +133,15 @@ impl LibraryView {
 				.outline()
 				.disabled(run.is_some())
 				.dropdown_menu(move |mut menu, _, _| {
+					let rescan = {
+						let (view, id) = (view.clone(), id.clone());
+						PopupMenuItem::new(t!("tools.rescan_fix")).on_click(move |_, _, cx| {
+							let id = id.clone();
+							let _ =
+								view.update(cx, |this, _| this.engine.send(Command::RescanFix(id)));
+						})
+					};
+					menu = menu.item(rescan).separator();
 					for tool in WineTool::ALL {
 						let (view, id) = (view.clone(), id.clone());
 						menu = menu.item(PopupMenuItem::new(tool_label(tool)).on_click(
@@ -251,6 +260,7 @@ impl LibraryView {
 									},
 								)))
 								.child(folders)
+								.child(self.saves_section(&game, cx))
 								.child(self.settings_form(&game, cx))
 								.child(
 									div().pt_2().child(
@@ -494,6 +504,126 @@ impl LibraryView {
 			)
 	}
 
+	fn saves_section(&self, game: &Game, cx: &mut Context<Self>) -> impl IntoElement {
+		let theme = cx.theme().clone();
+		let running = self.runs.contains_key(&game.id);
+		let backups = self.backups.get(&game.id).cloned().unwrap_or_default();
+		let folder =
+			onlinefix_launcher_core::saves::backups_dir(&self.paths.backups_dir(), &game.name);
+		let id = game.id.clone();
+		let rows = backups.into_iter().enumerate().map(|(ix, backup)| {
+			let (restore_id, delete_id) = (id.clone(), id.clone());
+			let (restore_path, delete_path) = (backup.path.clone(), backup.path.clone());
+			let when = format_date(backup.created);
+			h_flex()
+				.gap_2()
+				.text_sm()
+				.child(div().flex_1().mono(cx).child(when.clone()))
+				.child(
+					div()
+						.text_color(theme.muted_foreground)
+						.mono(cx)
+						.child(format_size(backup.size)),
+				)
+				.child(
+					Button::new(("restore-backup", ix))
+						.label(t!("saves.restore"))
+						.xsmall()
+						.outline()
+						.disabled(running)
+						.on_click(cx.listener(move |this, _, window, cx| {
+							this.confirm_restore(
+								restore_id.clone(),
+								restore_path.clone(),
+								when.clone(),
+								window,
+								cx,
+							)
+						})),
+				)
+				.child(
+					Button::new(("delete-backup", ix))
+						.icon(Icon::new(IconName::Delete))
+						.xsmall()
+						.ghost()
+						.tooltip(t!("game.remove"))
+						.on_click(cx.listener(move |this, _, _, _| {
+							this.engine.send(Command::DeleteBackup {
+								id: delete_id.clone(),
+								backup: delete_path.clone(),
+							})
+						})),
+				)
+		});
+		let rows: Vec<_> = rows.collect();
+		v_flex()
+			.gap_2()
+			.pt_2()
+			.border_t_1()
+			.border_color(theme.border)
+			.child(div().pt_2().child(t!("saves.title").into_owned()))
+			.child(
+				h_flex()
+					.gap_2()
+					.child(
+						Button::new("back-up-saves-now")
+							.label(t!("saves.back_up"))
+							.small()
+							.outline()
+							.disabled(running)
+							.on_click(cx.listener(move |this, _, _, _| {
+								this.engine.send(Command::BackUpSaves(id.clone()))
+							})),
+					)
+					.child(
+						Button::new("backups-folder")
+							.label(t!("common.open_folder"))
+							.small()
+							.ghost()
+							.disabled(!folder.is_dir())
+							.on_click(move |_, _, _| open_path(&folder)),
+					),
+			)
+			.when(rows.is_empty(), |c| {
+				c.child(
+					div()
+						.text_sm()
+						.text_color(theme.muted_foreground)
+						.child(t!("saves.none").into_owned()),
+				)
+			})
+			.children(rows)
+	}
+
+	fn confirm_restore(
+		&self,
+		id: String,
+		backup: std::path::PathBuf,
+		when: String,
+		window: &mut Window,
+		cx: &mut Context<Self>,
+	) {
+		let engine = self.engine.clone();
+		let text = t!("saves.restore_text", when = when).into_owned();
+		window.open_alert_dialog(cx, move |alert, _, _| {
+			let engine = engine.clone();
+			let (id, backup) = (id.clone(), backup.clone());
+			alert
+				.title(t!("saves.restore_title").into_owned())
+				.description(text.clone())
+				.confirm()
+				.ok_text(t!("saves.restore").into_owned())
+				.cancel_text(t!("common.cancel").into_owned())
+				.on_ok(move |_, _, _| {
+					engine.send(Command::RestoreSaves {
+						id: id.clone(),
+						backup: backup.clone(),
+					});
+					true
+				})
+		});
+	}
+
 	fn confirm_remove(&self, game: &Game, window: &mut Window, cx: &mut Context<Self>) {
 		let engine = self.engine.clone();
 		let id = game.id.clone();
@@ -504,6 +634,7 @@ impl LibraryView {
 		// by hand may be shared, so it stays unless asked.
 		let delete_prefix = Rc::new(Cell::new(game.prefix.is_none()));
 		let delete_game_dir = Rc::new(Cell::new(false));
+		let back_up = Rc::new(Cell::new(true));
 		window.open_dialog(cx, move |dialog, _, cx| {
 			let muted = cx.theme().muted_foreground;
 			let option =
@@ -528,7 +659,23 @@ impl LibraryView {
 				};
 			let engine = engine.clone();
 			let id = id.clone();
-			let (prefix_cell, dir_cell) = (delete_prefix.clone(), delete_game_dir.clone());
+			let (prefix_cell, dir_cell, backup_cell) = (
+				delete_prefix.clone(),
+				delete_game_dir.clone(),
+				back_up.clone(),
+			);
+			let backup_toggle = {
+				let cell = back_up.clone();
+				div().pl_6().child(
+					Checkbox::new("back-up-saves")
+						.label(t!("game.back_up_first").into_owned())
+						.checked(cell.get())
+						.on_click(move |checked, window, _| {
+							cell.set(*checked);
+							window.refresh();
+						}),
+				)
+			};
 			let deleting = delete_game_dir.get();
 			dialog
 				.title(t!("game.remove_title").into_owned())
@@ -543,6 +690,7 @@ impl LibraryView {
 							&prefix,
 							&delete_prefix,
 						))
+						.when(delete_prefix.get(), |list| list.child(backup_toggle))
 						.child(option(
 							"delete-game-dir",
 							t!("game.delete_game_dir").into_owned(),
@@ -578,6 +726,7 @@ impl LibraryView {
 										id: id.clone(),
 										delete_game_dir: dir_cell.get(),
 										delete_prefix: prefix_cell.get(),
+										back_up: backup_cell.get(),
 									});
 									window.close_dialog(cx);
 								}),

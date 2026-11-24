@@ -2,13 +2,12 @@
 
 use std::io::Write;
 use std::path::Path;
-use std::sync::Mutex;
 use std::time::Duration;
 
 use rust_i18n::t;
 
 use super::*;
-use crate::launch::{self, Stream};
+use crate::launch;
 use crate::library::Game;
 use crate::proton::ProtonBuild;
 use crate::{fix, proton, steam};
@@ -93,7 +92,13 @@ impl State {
 		self.emit_library();
 	}
 
-	pub(super) fn remove_game(&mut self, id: &str, delete_game_dir: bool, delete_prefix: bool) {
+	pub(super) fn remove_game(
+		&mut self,
+		id: &str,
+		delete_game_dir: bool,
+		delete_prefix: bool,
+		back_up: bool,
+	) {
 		if self.running.contains_key(id) {
 			self.sink
 				.emit(Event::Error(t!("err.game_running").into_owned()));
@@ -119,8 +124,27 @@ impl State {
 		}
 		let protected = protected_dirs(&self.paths);
 		let sink = self.sink.clone();
+		let backup = (delete_prefix && back_up).then(|| {
+			(
+				game.prefix_dir(&self.paths),
+				crate::saves::backups_dir(&self.paths.backups_dir(), &game.name),
+			)
+		});
 		let name = game.name;
 		tokio::task::spawn_blocking(move || {
+			if let Some((prefix, dir)) = backup {
+				match crate::saves::back_up(&prefix, &dir, &crate::library::now().to_string()) {
+					Ok(Some(made)) => {
+						tracing::info!("saves of {name} backed up to {}", made.path.display())
+					}
+					Ok(None) => {}
+					Err(e) => {
+						// Losing saves is worse than keeping a prefix around.
+						sink.emit(Event::Error(t!("err.backup_kept", error = e).into_owned()));
+						return;
+					}
+				}
+			}
 			let mut failed = false;
 			for dir in doomed {
 				if !deletable(&dir, &protected) {
@@ -147,10 +171,143 @@ impl State {
 		});
 	}
 
+	fn backups_of(&self, id: &str) -> Option<(crate::library::Game, PathBuf)> {
+		let game = self.library.get(id)?.clone();
+		let dir = crate::saves::backups_dir(&self.paths.backups_dir(), &game.name);
+		Some((game, dir))
+	}
+
+	pub(super) fn list_backups(&self, id: &str) {
+		if let Some((_, dir)) = self.backups_of(id) {
+			let backups = crate::saves::list(&dir);
+			self.sink.emit(Event::Backups {
+				id: id.to_owned(),
+				backups,
+			});
+		}
+	}
+
+	pub(super) fn back_up_saves(&self, id: &str) {
+		let Some((game, dir)) = self.backups_of(id) else {
+			return;
+		};
+		let prefix = game.prefix_dir(&self.paths);
+		let sink = self.sink.clone();
+		let id = id.to_owned();
+		tokio::task::spawn_blocking(move || {
+			match crate::saves::back_up(&prefix, &dir, &crate::library::now().to_string()) {
+				Ok(Some(_)) => sink.emit(Event::Notice(
+					t!("saves.backed_up", name = game.name).into_owned(),
+				)),
+				Ok(None) => sink.emit(Event::Notice(
+					t!("saves.nothing", name = game.name).into_owned(),
+				)),
+				Err(e) => sink.emit(Event::Error(t!("err.backup", error = e).into_owned())),
+			}
+			sink.emit(Event::Backups {
+				id,
+				backups: crate::saves::list(&dir),
+			});
+		});
+	}
+
+	pub(super) fn restore_saves(&self, id: &str, backup: PathBuf) {
+		if self.running.contains_key(id) {
+			self.sink
+				.emit(Event::Error(t!("err.game_running").into_owned()));
+			return;
+		}
+		let Some((game, dir)) = self.backups_of(id) else {
+			return;
+		};
+		if !backup.starts_with(&dir) {
+			return;
+		}
+		let prefix = game.prefix_dir(&self.paths);
+		let sink = self.sink.clone();
+		tokio::task::spawn_blocking(move || match crate::saves::restore(&backup, &prefix) {
+			Ok(()) => sink.emit(Event::Notice(
+				t!("saves.restored", name = game.name).into_owned(),
+			)),
+			Err(e) => sink.emit(Event::Error(t!("err.restore", error = e).into_owned())),
+		});
+	}
+
+	pub(super) fn delete_backup(&self, id: &str, backup: PathBuf) {
+		let Some((_, dir)) = self.backups_of(id) else {
+			return;
+		};
+		if backup.starts_with(&dir)
+			&& let Err(e) = std::fs::remove_file(&backup)
+		{
+			self.sink.emit(Event::Error(
+				t!("err.delete_failed", path = backup.display(), error = e).into_owned(),
+			));
+		}
+		self.list_backups(id);
+	}
+
+	/// Brings the game's fix DLLs and app ids in line with what's on disk,
+	/// for fixes that were updated or removed since the game was added.
+	/// True when something changed.
+	fn apply_fix(&mut self, id: &str, info: &fix::FixInfo) -> bool {
+		let Some(mut game) = self.library.get(id).cloned() else {
+			return false;
+		};
+		let overrides = info.overrides_string();
+		let changed = overrides != game.fix_overrides
+			|| info
+				.real_app_id
+				.is_some_and(|i| game.real_app_id != Some(i))
+			|| info
+				.fake_app_id
+				.is_some_and(|i| game.fake_app_id != Some(i));
+		if !changed {
+			return false;
+		}
+		tracing::info!(
+			"fix of {} changed: {:?} -> {:?}",
+			game.name,
+			game.fix_overrides,
+			overrides
+		);
+		game.fix_overrides = overrides;
+		game.real_app_id = info.real_app_id.or(game.real_app_id);
+		game.fake_app_id = info.fake_app_id.or(game.fake_app_id);
+		self.update_game(game);
+		true
+	}
+
+	pub(super) fn rescan_fix(&mut self, id: &str) {
+		let Some(game) = self.library.get(id).cloned() else {
+			return;
+		};
+		let info = fix::scan(&fix::game_root(&game.exe));
+		let text = if self.apply_fix(id, &info) {
+			t!("fix.updated", name = game.name)
+		} else {
+			t!("fix.unchanged", name = game.name)
+		};
+		self.sink.emit(Event::Notice(text.into_owned()));
+	}
+
 	pub(super) fn launch(&mut self, id: &str) {
 		if self.running.contains_key(id) {
 			return;
 		}
+		if self.library.get(id).is_none() {
+			return;
+		}
+		let fix_root = self
+			.library
+			.get(id)
+			.map(|g| fix::game_root(&g.exe))
+			.unwrap_or_default();
+		let fix_info = fix::scan(&fix_root);
+		for change in crate::patch::patch_ini(&fix_info) {
+			tracing::info!("{change}");
+		}
+		self.apply_fix(id, &fix_info);
 		let Some(game) = self.library.get(id).cloned() else {
 			return;
 		};
@@ -204,11 +361,6 @@ impl State {
 		};
 		tracing::info!("launching {}: {}", game.name, plan.display());
 
-		let fix_root = fix::game_root(&game.exe);
-		let fix_info = fix::scan(&fix_root);
-		for change in crate::patch::patch_ini(&fix_info) {
-			tracing::info!("{change}");
-		}
 		let cache = self.paths.cache_dir().to_path_buf();
 		let wait_for_steam = self.settings.start_steam && root.is_some() && !steam::is_running();
 		let sink = self.sink.clone();
@@ -248,18 +400,7 @@ impl State {
 				state: RunState::Running,
 			});
 			let log = open_log(&log_path, &plan.display());
-			let result = launch::run(&plan, move |stream, line| {
-				if let Some(log) = &log
-					&& let Ok(mut file) = log.lock()
-				{
-					let tag = match stream {
-						Stream::Stdout => "out",
-						Stream::Stderr => "err",
-					};
-					let _ = writeln!(file, "[{tag}] {line}");
-				}
-			})
-			.await;
+			let result = launch::run(&plan, log).await;
 			// Launchers start the game and quit; the game is done when
 			// every Wine process of the prefix is.
 			wait_for_wine(&wineserver, &wine_prefix).await;
@@ -405,7 +546,7 @@ pub(super) fn deletable(dir: &Path, protected: &[PathBuf]) -> bool {
 	dir.is_absolute() && deep && !tricky && !protected.iter().any(|p| p.starts_with(dir))
 }
 
-fn open_log(path: &Path, header: &str) -> Option<Mutex<std::fs::File>> {
+fn open_log(path: &Path, header: &str) -> Option<std::fs::File> {
 	let open = || -> std::io::Result<std::fs::File> {
 		if let Some(dir) = path.parent() {
 			std::fs::create_dir_all(dir)?;
@@ -415,7 +556,7 @@ fn open_log(path: &Path, header: &str) -> Option<Mutex<std::fs::File>> {
 		Ok(file)
 	};
 	match open() {
-		Ok(file) => Some(Mutex::new(file)),
+		Ok(file) => Some(file),
 		Err(e) => {
 			tracing::warn!("game log {}: {e}", path.display());
 			None

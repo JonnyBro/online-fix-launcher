@@ -6,7 +6,6 @@ use std::process::Stdio;
 use std::time::{Duration, Instant};
 
 use rust_i18n::t;
-use tokio::io::{AsyncBufReadExt, BufReader};
 
 use crate::library::Game;
 use crate::proton::ProtonBuild;
@@ -161,23 +160,16 @@ fn path_str(path: &Path) -> String {
 	path.to_string_lossy().into_owned()
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Stream {
-	Stdout,
-	Stderr,
-}
-
 #[derive(Debug)]
 pub struct Outcome {
 	pub code: Option<i32>,
 	pub ran_for: Duration,
 }
 
-/// Runs the plan to the end, handing every output line to `on_line`.
-pub async fn run(
-	plan: &Plan,
-	on_line: impl Fn(Stream, String) + Send + Sync + 'static,
-) -> std::io::Result<Outcome> {
+/// Runs the plan to the end. Output goes straight to `log` (or nowhere),
+/// and the game gets its own process group: closing the launcher, or the
+/// terminal it was started from, leaves the game running.
+pub async fn run(plan: &Plan, log: Option<std::fs::File>) -> std::io::Result<Outcome> {
 	std::fs::create_dir_all(
 		plan.env
 			.iter()
@@ -185,39 +177,21 @@ pub async fn run(
 			.map(|(_, v)| PathBuf::from(v))
 			.unwrap_or_default(),
 	)?;
+	let (stdout, stderr) = match log {
+		Some(file) => (Stdio::from(file.try_clone()?), Stdio::from(file)),
+		None => (Stdio::null(), Stdio::null()),
+	};
 	let started = Instant::now();
 	let mut child = tokio::process::Command::new(&plan.program)
 		.args(&plan.args)
 		.current_dir(&plan.cwd)
 		.envs(plan.env.iter().map(|(k, v)| (k, v)))
 		.stdin(Stdio::null())
-		.stdout(Stdio::piped())
-		.stderr(Stdio::piped())
+		.stdout(stdout)
+		.stderr(stderr)
+		.process_group(0)
 		.spawn()?;
-	let on_line = std::sync::Arc::new(on_line);
-	let mut readers = Vec::new();
-	if let Some(out) = child.stdout.take() {
-		let on_line = on_line.clone();
-		readers.push(tokio::spawn(async move {
-			let mut lines = BufReader::new(out).lines();
-			while let Ok(Some(line)) = lines.next_line().await {
-				on_line(Stream::Stdout, line);
-			}
-		}));
-	}
-	if let Some(err) = child.stderr.take() {
-		let on_line = on_line.clone();
-		readers.push(tokio::spawn(async move {
-			let mut lines = BufReader::new(err).lines();
-			while let Ok(Some(line)) = lines.next_line().await {
-				on_line(Stream::Stderr, line);
-			}
-		}));
-	}
 	let status = child.wait().await?;
-	for reader in readers {
-		let _ = reader.await;
-	}
 	Ok(Outcome {
 		code: status.code(),
 		ran_for: started.elapsed(),

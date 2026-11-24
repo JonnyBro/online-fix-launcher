@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use onlinefix_launcher_core::launch::{self, Context, Stream};
+use onlinefix_launcher_core::launch::{self, Context};
 use onlinefix_launcher_core::library::Game;
 use onlinefix_launcher_core::{AppPaths, detect, fix, proton, steam};
 
@@ -77,11 +77,9 @@ async fn main() {
 			std::process::exit(1);
 		}
 	}
-	let outcome = launch::run(&plan, |stream, line| match stream {
-		Stream::Stdout => println!("{line}"),
-		Stream::Stderr => eprintln!("{line}"),
-	})
-	.await
-	.expect("run");
+	let log = std::env::temp_dir().join("run_game.log");
+	println!("game output goes to {}", log.display());
+	let file = std::fs::File::create(&log).expect("log file");
+	let outcome = launch::run(&plan, Some(file)).await.expect("run");
 	println!("exit {:?} after {:?}", outcome.code, outcome.ran_for);
 }

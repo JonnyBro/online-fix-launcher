@@ -27,8 +27,22 @@ pub enum Command {
 		id: String,
 		delete_game_dir: bool,
 		delete_prefix: bool,
+		/// Back up the saves first; only matters with `delete_prefix`.
+		back_up: bool,
+	},
+	ListBackups(String),
+	BackUpSaves(String),
+	RestoreSaves {
+		id: String,
+		backup: PathBuf,
+	},
+	DeleteBackup {
+		id: String,
+		backup: PathBuf,
 	},
 	Launch(String),
+	/// Reads the fix from the game folder again.
+	RescanFix(String),
 	Stop(String),
 	RefreshProtons,
 	ListProtonReleases(Provider),
@@ -193,6 +207,10 @@ pub enum Event {
 		prefix: Option<PathBuf>,
 	},
 	ArtChanged(String),
+	Backups {
+		id: String,
+		backups: Vec<crate::saves::Backup>,
+	},
 	ArtChoices {
 		request: u64,
 		result: Result<Vec<ArtOption>, String>,

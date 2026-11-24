@@ -200,3 +200,27 @@ err.update_no_binary:
 err.update:
   en: "could not update: %{error}"
   ru: "не удалось обновиться: %{error}"
+fix.updated:
+  en: "The fix of %{name} changed; its DLL list is updated"
+  ru: "Фикс %{name} изменился; список DLL обновлён"
+fix.unchanged:
+  en: "The fix of %{name} is the same as before"
+  ru: "Фикс %{name} не изменился"
+saves.backed_up:
+  en: "Saves of %{name} backed up"
+  ru: "Копия сохранений %{name} сделана"
+saves.nothing:
+  en: "%{name} has no saves in its prefix yet"
+  ru: "В префиксе %{name} пока нет сохранений"
+saves.restored:
+  en: "Saves of %{name} restored"
+  ru: "Сохранения %{name} восстановлены"
+err.backup:
+  en: "could not back up the saves: %{error}"
+  ru: "не удалось сделать копию сохранений: %{error}"
+err.backup_kept:
+  en: "could not back up the saves, so nothing was deleted from the disk: %{error}"
+  ru: "не удалось сделать копию сохранений, поэтому с диска ничего не удалено: %{error}"
+err.restore:
+  en: "could not restore the saves: %{error}"
+  ru: "не удалось восстановить сохранения: %{error}"

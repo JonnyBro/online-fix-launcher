@@ -93,6 +93,9 @@ impl Shell {
 				folder,
 				prefix,
 			} => self.open_add(folder, Some(Preset { id, name, prefix }), window, cx),
+			Event::Backups { id, backups } => self
+				.library
+				.update(cx, |l, cx| l.set_backups(id, backups, cx)),
 			Event::ArtChanged(id) => self.library.update(cx, |l, cx| l.art_changed(id, cx)),
 			Event::ArtChoices { request, result } => {
 				if let Some(gallery) = self.gallery.as_ref().and_then(|g| g.upgrade())

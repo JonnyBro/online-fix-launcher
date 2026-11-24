@@ -25,7 +25,7 @@ use onlinefix_launcher_core::tools::WineTool;
 use onlinefix_launcher_core::{AppPaths, Command, Engine, PendingStage, RunState};
 
 use crate::theme::Mono;
-use crate::widgets::{empty_state, format_date, format_play_time, open_path};
+use crate::widgets::{empty_state, format_date, format_play_time, format_size, open_path};
 
 const DETAILS_WIDTH: f32 = 380.;
 const CARD_WIDTH: f32 = 160.;
@@ -78,6 +78,7 @@ pub struct LibraryView {
 	store: ArtStore,
 	art: HashMap<String, Art>,
 	unpacking: Vec<Unpacking>,
+	backups: HashMap<String, Vec<onlinefix_launcher_core::saves::Backup>>,
 	_subscriptions: Vec<Subscription>,
 }
 
@@ -153,6 +154,7 @@ impl LibraryView {
 			store,
 			art: HashMap::new(),
 			unpacking: Vec::new(),
+			backups: HashMap::new(),
 			games: Vec::new(),
 			protons: Vec::new(),
 			runs: HashMap::new(),
@@ -255,7 +257,20 @@ impl LibraryView {
 			.collect()
 	}
 
+	pub fn set_backups(
+		&mut self,
+		id: String,
+		backups: Vec<onlinefix_launcher_core::saves::Backup>,
+		cx: &mut Context<Self>,
+	) {
+		self.backups.insert(id, backups);
+		cx.notify();
+	}
+
 	pub fn select(&mut self, id: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
+		if let Some(id) = &id {
+			self.engine.send(Command::ListBackups(id.clone()));
+		}
 		self.selected = id;
 		self.draft = self.saved().cloned();
 		self.fill_fields(true, window, cx);
