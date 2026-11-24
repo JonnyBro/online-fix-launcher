@@ -1,6 +1,7 @@
 # OnlineFix Launcher
 
 [![CI](https://github.com/JonnyBro/online-fix-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/JonnyBro/online-fix-launcher/actions/workflows/ci.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/JonnyBro/online-fix-launcher)](https://github.com/JonnyBro/online-fix-launcher/releases/latest)
 
 Linux launcher for Windows games with OnlineFix and FreeTP multiplayer fixes,
 run through Proton. Written in Rust with [gpui](https://gpui.rs) and
