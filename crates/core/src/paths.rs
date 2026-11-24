@@ -58,6 +58,11 @@ impl AppPaths {
 		self.data_dir.join("logs")
 	}
 
+	/// Output of each game's last run.
+	pub fn game_log(&self, id: &str) -> PathBuf {
+		self.logs_dir().join("games").join(format!("{id}.log"))
+	}
+
 	/// Wine prefixes of games that don't set their own.
 	pub fn default_prefixes_dir(&self) -> PathBuf {
 		self.data_dir.join("prefixes")

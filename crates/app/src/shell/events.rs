@@ -22,6 +22,16 @@ impl Shell {
 			}
 			Event::SettingsSaveFailed(text) => self.notify(Notification::error(text), window, cx),
 			Event::AppUpdate(release) => self.app_update = Some(release),
+			Event::Library(games) => self
+				.library
+				.update(cx, |l, cx| l.set_games(games, window, cx)),
+			Event::GameAdded(id) => {
+				self.tab = Tab::Library;
+				self.library
+					.update(cx, |l, cx| l.select(Some(id), window, cx));
+			}
+			Event::Protons(protons) => self.library.update(cx, |l, cx| l.set_protons(protons, cx)),
+			Event::Run { id, state } => self.library.update(cx, |l, cx| l.set_run(id, state, cx)),
 			Event::Notice(text) => self.notify(Notification::info(text), window, cx),
 			Event::Error(text) => self.notify(Notification::error(text), window, cx),
 		}

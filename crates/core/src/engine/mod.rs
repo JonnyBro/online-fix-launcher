@@ -1,9 +1,12 @@
 //! Background side of the app: the UI sends [`Command`]s, the engine works on a
 //! tokio runtime in its own thread and reports back with [`Event`]s.
 
+mod games;
 mod messages;
 mod run;
 
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::mpsc as std_mpsc;
 use std::thread::JoinHandle;
@@ -11,10 +14,11 @@ use std::thread::JoinHandle;
 use tokio::sync::mpsc;
 
 use crate::error::{Error, Result};
+use crate::library::Library;
 use crate::paths::AppPaths;
 use crate::settings::Settings;
 
-pub use messages::{Command, Event};
+pub use messages::{Command, Event, RunState};
 
 /// Called after every event so the UI can wake up and repaint.
 pub type Notifier = Arc<dyn Fn() + Send + Sync>;
@@ -95,6 +99,11 @@ struct State {
 	paths: AppPaths,
 	settings: Settings,
 	sink: EventSink,
+	library: Library,
+	/// The game list couldn't be read; saving would lose it.
+	library_broken: bool,
+	running: HashMap<String, games::Running>,
+	finished: mpsc::UnboundedSender<games::Finished>,
 }
 
 #[cfg(test)]

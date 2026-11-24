@@ -27,8 +27,8 @@ lib.empty:
   en: "No games yet"
   ru: "Игр пока нет"
 lib.empty_hint:
-  en: "Games with OnlineFix or FreeTP fixes you add will show up here."
-  ru: "Здесь появятся добавленные игры с фиксами OnlineFix или FreeTP."
+  en: "Add a game with an OnlineFix or FreeTP fix: pick its .exe or drop it on the window."
+  ru: "Добавьте игру с фиксом OnlineFix или FreeTP: выберите её .exe или перетащите его в окно."
 proton.empty:
   en: "No Proton builds yet"
   ru: "Сборок Proton пока нет"
@@ -107,3 +107,153 @@ upd.available:
 upd.hint:
   en: "Open the release page on GitHub"
   ru: "Открыть страницу релиза на GitHub"
+common.cancel:
+  en: "Cancel"
+  ru: "Отмена"
+lib.search:
+  en: "Search games"
+  ru: "Поиск игр"
+lib.add:
+  en: "Add game"
+  ru: "Добавить игру"
+lib.pick_exe:
+  en: "Pick the game's .exe"
+  ru: "Выберите .exe игры"
+lib.no_match:
+  en: "Nothing found"
+  ru: "Ничего не найдено"
+lib.no_match_hint:
+  en: "No game has that in its name."
+  ru: "Ни в одном названии игры нет такого текста."
+lib.never_played:
+  en: "Not played yet"
+  ru: "Ещё не запускалась"
+run.waiting_steam:
+  en: "Waiting for Steam"
+  ru: "Ждём Steam"
+run.running:
+  en: "Running"
+  ru: "Запущена"
+run.stopping:
+  en: "Stopping"
+  ru: "Останавливается"
+run.stopped:
+  en: "Stopped"
+  ru: "Остановлена"
+run.now:
+  en: "Playing: %{names}"
+  ru: "Запущено: %{names}"
+time.minutes:
+  en: "%{m} min"
+  ru: "%{m} мин"
+time.hours:
+  en: "%{h} h %{m} min"
+  ru: "%{h} ч %{m} мин"
+game.play:
+  en: "Play"
+  ru: "Играть"
+game.stop:
+  en: "Stop"
+  ru: "Остановить"
+game.played:
+  en: "Played"
+  ru: "В игре"
+game.last_played:
+  en: "Last played"
+  ru: "Последний запуск"
+game.proton:
+  en: "Proton"
+  ru: "Proton"
+game.proton_default:
+  en: "Default"
+  ru: "По умолчанию"
+game.proton_default_is:
+  en: "Default (%{name})"
+  ru: "По умолчанию (%{name})"
+game.proton_none:
+  en: "None found"
+  ru: "Не найден"
+game.proton_gone:
+  en: "Removed build"
+  ru: "Сборка удалена"
+game.app_id:
+  en: "Steam app id"
+  ru: "Steam app id"
+game.fix_overrides:
+  en: "Fix DLLs"
+  ru: "DLL фикса"
+game.no_fix:
+  en: "No fix found"
+  ru: "Фикс не найден"
+game.open_folder:
+  en: "Game folder"
+  ru: "Папка игры"
+game.open_prefix:
+  en: "Prefix"
+  ru: "Префикс"
+game.open_log:
+  en: "Last log"
+  ru: "Последний лог"
+game.settings:
+  en: "Settings"
+  ru: "Настройки"
+game.name:
+  en: "Name"
+  ru: "Название"
+game.args_after:
+  en: "Game arguments"
+  ru: "Аргументы игры"
+game.args_after_hint:
+  en: "-windowed -nointro"
+  ru: "-windowed -nointro"
+game.args_before:
+  en: "Run through"
+  ru: "Запускать через"
+game.args_before_hint:
+  en: "gamemoderun mangohud"
+  ru: "gamemoderun mangohud"
+game.extra_overrides:
+  en: "Extra DLL overrides"
+  ru: "Дополнительные DLL overrides"
+game.overrides_hint:
+  en: "dinput8=n,b;version=n,b"
+  ru: "dinput8=n,b;version=n,b"
+game.steam_runtime:
+  en: "Steam Linux Runtime"
+  ru: "Steam Linux Runtime"
+game.steam_overlay:
+  en: "Steam overlay"
+  ru: "Оверлей Steam"
+game.wayland:
+  en: "Native Wayland"
+  ru: "Нативный Wayland"
+game.wined3d:
+  en: "WineD3D instead of DXVK"
+  ru: "WineD3D вместо DXVK"
+game.unsaved:
+  en: "Not saved"
+  ru: "Не сохранено"
+game.revert:
+  en: "Revert"
+  ru: "Отменить"
+game.save:
+  en: "Save"
+  ru: "Сохранить"
+game.remove:
+  en: "Remove"
+  ru: "Удалить"
+game.remove_title:
+  en: "Remove the game?"
+  ru: "Удалить игру?"
+game.remove_text:
+  en: "%{name} leaves the library. Pick what goes from the disk too:"
+  ru: "%{name} пропадёт из библиотеки. Отметьте, что удалить и с диска:"
+game.delete_prefix:
+  en: "Delete the Wine prefix (saves kept inside it go too)"
+  ru: "Удалить Wine-префикс (сохранения внутри него тоже)"
+game.delete_game_dir:
+  en: "Delete the game folder"
+  ru: "Удалить папку игры"
+game.delete_game_dir_warning:
+  en: "The whole folder goes, with everything in it. This can't be undone."
+  ru: "Папка удалится целиком, со всем содержимым. Отменить это нельзя."

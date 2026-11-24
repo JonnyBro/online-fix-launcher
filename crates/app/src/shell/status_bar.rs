@@ -64,6 +64,7 @@ impl Shell {
 	}
 
 	pub(super) fn status_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+		let running = self.running_games(cx).into_any_element();
 		let theme = cx.theme();
 		h_flex()
 			.h(px(30.))
@@ -73,7 +74,7 @@ impl Shell {
 			.bg(theme.status_bar)
 			.border_t_1()
 			.border_color(theme.status_bar_border)
-			.child(div().flex_1())
+			.child(running)
 			.children(self.app_update.as_ref().map(|release| {
 				let url = release.url.clone();
 				Button::new("app-update")
@@ -110,6 +111,29 @@ impl Shell {
 					.mono(cx)
 					.child(concat!("v", env!("CARGO_PKG_VERSION"))),
 			)
+	}
+
+	fn running_games(&self, cx: &mut Context<Self>) -> impl IntoElement {
+		let running = self.library.read(cx).running();
+		let theme = cx.theme();
+		h_flex()
+			.flex_1()
+			.min_w_0()
+			.gap_2()
+			.when(!running.is_empty(), |row| {
+				row.child(
+					div()
+						.size_2()
+						.flex_shrink_0()
+						.rounded_full()
+						.bg(theme.success),
+				)
+				.child(
+					div()
+						.truncate()
+						.child(t!("run.now", names = running.join(", ")).into_owned()),
+				)
+			})
 	}
 
 	pub(super) fn logs_panel(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -169,7 +193,7 @@ impl Shell {
 					.icon(Icon::new(IconName::FolderOpen))
 					.ghost()
 					.xsmall()
-					.on_click(move |_, _, _| crate::widgets::open_folder(&folder)),
+					.on_click(move |_, _, _| crate::widgets::open_path(&folder)),
 			)
 			.child(
 				Button::new("logs-close")

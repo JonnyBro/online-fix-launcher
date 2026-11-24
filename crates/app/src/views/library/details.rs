@@ -1,0 +1,464 @@
+use super::grid::run_label;
+use super::*;
+
+impl LibraryView {
+	pub(super) fn details(
+		&self,
+		_window: &mut Window,
+		cx: &mut Context<Self>,
+	) -> Option<AnyElement> {
+		let game = self.draft.clone()?;
+		let saved = self.saved()?.clone();
+		let theme = cx.theme().clone();
+		let run = self.runs.get(&game.id).copied();
+		let id = game.id.clone();
+		let cover_w = DETAILS_WIDTH - 32.;
+
+		let play = match run {
+			None => Button::new("play")
+				.label(t!("game.play"))
+				.icon(Icon::new(IconName::Play))
+				.primary()
+				.on_click(cx.listener({
+					let id = id.clone();
+					move |this, _, _, _| this.launch(&id)
+				})),
+			Some(RunState::Stopping) => Button::new("play")
+				.label(run_label(RunState::Stopping))
+				.outline()
+				.loading(true)
+				.disabled(true),
+			Some(state) => Button::new("play")
+				.label(t!("game.stop"))
+				.icon(Icon::new(IconName::Square))
+				.with_variant(ButtonVariant::Danger)
+				.tooltip(run_label(state))
+				.on_click(cx.listener({
+					let id = id.clone();
+					move |this, _, _, _| this.engine.send(Command::Stop(id.clone()))
+				})),
+		};
+
+		let proton_name = match &saved.proton {
+			Some(dir) => self
+				.protons
+				.iter()
+				.find(|p| &p.dir == dir)
+				.map(|p| p.name.clone())
+				.unwrap_or_else(|| t!("game.proton_gone").into_owned()),
+			None => match self.protons.first() {
+				Some(p) => t!("game.proton_default_is", name = p.name).into_owned(),
+				None => t!("game.proton_none").into_owned(),
+			},
+		};
+		let mut facts: Vec<(String, String)> = vec![
+			(
+				t!("game.played").into(),
+				if saved.play_seconds > 0 {
+					format_play_time(saved.play_seconds)
+				} else {
+					t!("lib.never_played").into()
+				},
+			),
+			(
+				t!("game.last_played").into(),
+				saved
+					.last_played
+					.map(format_date)
+					.unwrap_or_else(|| "—".into()),
+			),
+			(t!("game.proton").into(), proton_name),
+		];
+		if let Some(app_id) = saved.real_app_id {
+			facts.push((t!("game.app_id").into(), app_id.to_string()));
+		}
+		facts.push((
+			t!("game.fix_overrides").into(),
+			if saved.fix_overrides.is_empty() {
+				t!("game.no_fix").into()
+			} else {
+				saved.fix_overrides.replace(';', "; ")
+			},
+		));
+
+		let folders = {
+			let game_dir = game.work_dir().to_path_buf();
+			let prefix = game.prefix_dir(&self.paths);
+			let log = self.paths.game_log(&game.id);
+			h_flex()
+				.gap_2()
+				.flex_wrap()
+				.child(
+					Button::new("open-game-dir")
+						.label(t!("game.open_folder"))
+						.icon(Icon::new(IconName::FolderOpen))
+						.small()
+						.outline()
+						.on_click(move |_, _, _| open_path(&game_dir)),
+				)
+				.child(
+					Button::new("open-prefix")
+						.label(t!("game.open_prefix"))
+						.small()
+						.outline()
+						.disabled(!prefix.is_dir())
+						.on_click(move |_, _, _| open_path(&prefix)),
+				)
+				.child(
+					Button::new("open-log")
+						.label(t!("game.open_log"))
+						.small()
+						.outline()
+						.disabled(!log.is_file())
+						.on_click(move |_, _, _| open_path(&log)),
+				)
+		};
+
+		Some(
+			v_flex()
+				.w(px(DETAILS_WIDTH))
+				.flex_shrink_0()
+				.h_full()
+				.border_l_1()
+				.border_color(theme.border)
+				.bg(theme.sidebar)
+				.child(
+					h_flex()
+						.px_4()
+						.pt_4()
+						.gap_2()
+						.child(div().flex_1().min_w_0().text_lg().child(saved.name.clone()))
+						.child(
+							Button::new("close-details")
+								.icon(Icon::new(IconName::Close))
+								.ghost()
+								.xsmall()
+								.on_click(
+									cx.listener(|this, _, window, cx| {
+										this.select(None, window, cx)
+									}),
+								),
+						),
+				)
+				.child(
+					div()
+						.id("details")
+						.flex_1()
+						.min_h_0()
+						.overflow_y_scroll()
+						.child(
+							v_flex()
+								.p_4()
+								.gap_4()
+								.child(placeholder_cover(&saved, (cover_w, cover_w * 0.47), &theme))
+								.child(h_flex().gap_2().child(play).children(run.map(|state| {
+									div()
+										.text_sm()
+										.text_color(theme.success)
+										.child(run_label(state))
+								})))
+								.child(v_flex().gap_1().text_sm().children(facts.into_iter().map(
+									|(label, value)| {
+										h_flex()
+											.gap_3()
+											.items_start()
+											.child(
+												div()
+													.w(px(120.))
+													.flex_shrink_0()
+													.text_color(theme.muted_foreground)
+													.child(label),
+											)
+											.child(div().min_w_0().mono(cx).child(value))
+									},
+								)))
+								.child(folders)
+								.child(self.settings_form(&game, cx))
+								.child(
+									div().pt_2().child(
+										Button::new("remove-game")
+											.label(t!("game.remove"))
+											.icon(Icon::new(IconName::Delete))
+											.small()
+											.ghost()
+											.with_variant(ButtonVariant::Danger)
+											.disabled(run.is_some())
+											.on_click(cx.listener({
+												let game = saved.clone();
+												move |this, _, window, cx| {
+													this.confirm_remove(&game, window, cx)
+												}
+											})),
+									),
+								),
+						),
+				)
+				.when(self.is_dirty(), |panel| panel.child(self.save_bar(cx)))
+				.into_any_element(),
+		)
+	}
+
+	fn settings_form(&self, game: &Game, cx: &mut Context<Self>) -> impl IntoElement {
+		let theme = cx.theme();
+		let label = |text: String| {
+			div()
+				.text_sm()
+				.text_color(theme.muted_foreground)
+				.child(text)
+		};
+		let toggle = |id: &'static str, text: String, checked: bool, apply: fn(&mut Game, bool)| {
+			Checkbox::new(id)
+				.label(text)
+				.checked(checked)
+				.on_click(cx.listener(move |this, checked: &bool, _, cx| {
+					if let Some(draft) = &mut this.draft {
+						apply(draft, *checked);
+						cx.notify();
+					}
+				}))
+		};
+		let current = game.proton.clone();
+		let current_label = match &current {
+			Some(dir) => self
+				.protons
+				.iter()
+				.find(|p| &p.dir == dir)
+				.map(|p| p.name.clone())
+				.unwrap_or_else(|| dir.display().to_string()),
+			None => t!("game.proton_default").into_owned(),
+		};
+		let protons = self.protons.clone();
+		let view = cx.entity().downgrade();
+		let proton_picker = Button::new("game-proton")
+			.label(current_label)
+			.small()
+			.outline()
+			.dropdown_caret(true)
+			.dropdown_menu(move |mut menu, _, _| {
+				let choice = |label: String, dir: Option<std::path::PathBuf>| {
+					let view = view.clone();
+					let checked = dir == current;
+					PopupMenuItem::new(label)
+						.checked(checked)
+						.on_click(move |_, _, cx| {
+							let dir = dir.clone();
+							let _ = view.update(cx, |this, cx| {
+								if let Some(draft) = &mut this.draft {
+									draft.proton = dir;
+									cx.notify();
+								}
+							});
+						})
+				};
+				menu = menu.item(choice(t!("game.proton_default").into_owned(), None));
+				for p in &protons {
+					menu = menu.item(choice(p.name.clone(), Some(p.dir.clone())));
+				}
+				menu
+			});
+		v_flex()
+			.gap_3()
+			.pt_2()
+			.border_t_1()
+			.border_color(theme.border)
+			.child(div().pt_2().child(t!("game.settings").into_owned()))
+			.child(
+				v_flex()
+					.gap_1()
+					.child(label(t!("game.name").into()))
+					.child(Input::new(&self.fields.name).small()),
+			)
+			.child(
+				v_flex()
+					.gap_1()
+					.child(label(t!("game.proton").into()))
+					.child(proton_picker),
+			)
+			.child(
+				v_flex()
+					.gap_1()
+					.child(label(t!("game.args_after").into()))
+					.child(Input::new(&self.fields.args_after).small()),
+			)
+			.child(
+				v_flex()
+					.gap_1()
+					.child(label(t!("game.args_before").into()))
+					.child(Input::new(&self.fields.args_before).small()),
+			)
+			.child(
+				v_flex()
+					.gap_1()
+					.child(label(t!("game.extra_overrides").into()))
+					.child(Input::new(&self.fields.overrides).small()),
+			)
+			.child(
+				v_flex()
+					.gap_2()
+					.child(toggle(
+						"steam-runtime",
+						t!("game.steam_runtime").into(),
+						game.steam_runtime,
+						|g, v| g.steam_runtime = v,
+					))
+					.child(toggle(
+						"steam-overlay",
+						t!("game.steam_overlay").into(),
+						game.steam_overlay,
+						|g, v| g.steam_overlay = v,
+					))
+					.child(toggle(
+						"wayland",
+						t!("game.wayland").into(),
+						game.wayland,
+						|g, v| g.wayland = v,
+					))
+					.child(toggle(
+						"wined3d",
+						t!("game.wined3d").into(),
+						game.wined3d,
+						|g, v| g.wined3d = v,
+					)),
+			)
+	}
+
+	fn save_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+		let theme = cx.theme();
+		let can_save = self
+			.draft
+			.as_ref()
+			.is_some_and(|g| !g.name.trim().is_empty());
+		h_flex()
+			.px_4()
+			.py_3()
+			.gap_2()
+			.border_t_1()
+			.border_color(theme.border)
+			.bg(theme.muted)
+			.child(
+				div()
+					.flex_1()
+					.min_w_0()
+					.truncate()
+					.text_sm()
+					.text_color(theme.muted_foreground)
+					.child(t!("game.unsaved").into_owned()),
+			)
+			.child(
+				Button::new("game-revert")
+					.label(t!("game.revert"))
+					.small()
+					.outline()
+					.on_click(cx.listener(|this, _, window, cx| {
+						this.draft = this.saved().cloned();
+						this.fill_fields(window, cx);
+						cx.notify();
+					})),
+			)
+			.child(
+				Button::new("game-save")
+					.label(t!("game.save"))
+					.small()
+					.primary()
+					.disabled(!can_save)
+					.on_click(cx.listener(|this, _, _, _| {
+						if let Some(mut game) = this.draft.clone() {
+							game.name = game.name.trim().to_owned();
+							this.engine.send(Command::UpdateGame(Box::new(game)));
+						}
+					})),
+			)
+	}
+
+	fn confirm_remove(&self, game: &Game, window: &mut Window, cx: &mut Context<Self>) {
+		let engine = self.engine.clone();
+		let id = game.id.clone();
+		let text = t!("game.remove_text", name = game.name).into_owned();
+		let game_dir = fix::game_root(&game.exe);
+		let prefix = game.prefix_dir(&self.paths);
+		// The launcher's own prefix is useless without the game; one picked
+		// by hand may be shared, so it stays unless asked.
+		let delete_prefix = Rc::new(Cell::new(game.prefix.is_none()));
+		let delete_game_dir = Rc::new(Cell::new(false));
+		window.open_dialog(cx, move |dialog, _, cx| {
+			let muted = cx.theme().muted_foreground;
+			let option =
+				|id: &'static str, label: String, path: &std::path::Path, cell: &Rc<Cell<bool>>| {
+					let cell = cell.clone();
+					v_flex()
+						.gap_1()
+						.child(Checkbox::new(id).label(label).checked(cell.get()).on_click(
+							move |checked, window, _| {
+								cell.set(*checked);
+								window.refresh();
+							},
+						))
+						.child(
+							div()
+								.pl_6()
+								.text_sm()
+								.text_color(muted)
+								.font_family(cx.theme().mono_font_family.clone())
+								.child(path.display().to_string()),
+						)
+				};
+			let engine = engine.clone();
+			let id = id.clone();
+			let (prefix_cell, dir_cell) = (delete_prefix.clone(), delete_game_dir.clone());
+			let deleting = delete_game_dir.get();
+			dialog
+				.title(t!("game.remove_title").into_owned())
+				.w(px(520.))
+				.child(
+					v_flex()
+						.gap_3()
+						.child(div().child(text.clone()))
+						.child(option(
+							"delete-prefix",
+							t!("game.delete_prefix").into_owned(),
+							&prefix,
+							&delete_prefix,
+						))
+						.child(option(
+							"delete-game-dir",
+							t!("game.delete_game_dir").into_owned(),
+							&game_dir,
+							&delete_game_dir,
+						))
+						.when(deleting, |list| {
+							list.child(
+								div()
+									.text_sm()
+									.text_color(cx.theme().danger)
+									.child(t!("game.delete_game_dir_warning").into_owned()),
+							)
+						}),
+				)
+				.footer(
+					h_flex()
+						.w_full()
+						.justify_end()
+						.gap_2()
+						.child(
+							Button::new("remove-cancel")
+								.label(t!("common.cancel"))
+								.outline()
+								.on_click(|_, window, cx| window.close_dialog(cx)),
+						)
+						.child(
+							Button::new("remove-ok")
+								.label(t!("game.remove"))
+								.with_variant(ButtonVariant::Danger)
+								.on_click(move |_, window, cx| {
+									engine.send(Command::RemoveGame {
+										id: id.clone(),
+										delete_game_dir: dir_cell.get(),
+										delete_prefix: prefix_cell.get(),
+									});
+									window.close_dialog(cx);
+								}),
+						),
+				)
+		});
+	}
+}

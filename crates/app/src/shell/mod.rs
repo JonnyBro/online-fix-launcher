@@ -163,7 +163,7 @@ impl Shell {
 			});
 		}
 
-		let library = cx.new(|_| LibraryView::new());
+		let library = cx.new(|cx| LibraryView::new(engine.clone(), paths.clone(), window, cx));
 		let protons = cx.new(|_| ProtonsView::new(paths.protons_dir()));
 		let settings_view = cx.new(|_| SettingsView::new(engine.clone(), settings.clone()));
 		let log_colors = SharedColors::default();
@@ -225,6 +225,20 @@ impl Shell {
 		window.push_notification(note, cx);
 	}
 
+	/// Dropped `.exe` files become games; anything else is ignored.
+	fn add_dropped(&mut self, paths: &ExternalPaths, cx: &mut Context<Self>) {
+		for path in paths.paths() {
+			let is_exe = path
+				.extension()
+				.and_then(|e| e.to_str())
+				.is_some_and(|e| e.eq_ignore_ascii_case("exe"));
+			if is_exe {
+				self.engine.send(Command::AddGame { exe: path.clone() });
+			}
+		}
+		self.set_tab(Tab::Library, cx);
+	}
+
 	fn set_tab(&mut self, tab: Tab, cx: &mut Context<Self>) {
 		self.tab = tab;
 		cx.notify();
@@ -238,11 +252,17 @@ impl Render for Shell {
 			Tab::Proton => self.protons.clone().into_any_element(),
 			Tab::Settings => self.settings_view.clone().into_any_element(),
 		};
+		let drop_tint = cx.theme().primary.opacity(0.08);
+		let drop_border = cx.theme().primary;
 		v_flex()
 			.id("shell")
 			.size_full()
 			.bg(cx.theme().background)
 			.text_color(cx.theme().foreground)
+			.drag_over::<ExternalPaths>(move |style, _, _, _| {
+				style.bg(drop_tint).border_2().border_color(drop_border)
+			})
+			.on_drop(cx.listener(|this, paths: &ExternalPaths, _, cx| this.add_dropped(paths, cx)))
 			.child(
 				h_flex()
 					.flex_1()

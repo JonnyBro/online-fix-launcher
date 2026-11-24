@@ -26,3 +26,30 @@ err.proton_missing:
 err.bad_args:
   en: "can't read the arguments: %{args}"
   ru: "не удалось разобрать аргументы: %{args}"
+err.library_read_only:
+  en: "the game list couldn't be read, so changes aren't saved; fix or remove games.toml"
+  ru: "список игр не прочитался, поэтому изменения не сохраняются; исправьте или удалите games.toml"
+err.game_running:
+  en: "the game is running; stop it first"
+  ru: "игра запущена; сначала остановите её"
+err.launch:
+  en: "could not start %{name}: %{error}"
+  ru: "не удалось запустить %{name}: %{error}"
+err.runtime_missing:
+  en: "Steam Linux Runtime isn't installed, running without it. Install it with steam://install/%{app_id}"
+  ru: "Steam Linux Runtime не установлен, запуск без него. Установить: steam://install/%{app_id}"
+err.steam_not_started:
+  en: "Steam didn't start or nobody signed in"
+  ru: "Steam не запустился или вход не выполнен"
+err.game_quit:
+  en: "%{name} quit right away (code %{code}); its log may say why"
+  ru: "%{name} сразу закрылась (код %{code}); причина может быть в её логе"
+game.removed:
+  en: "%{name} removed"
+  ru: "%{name} удалена"
+err.not_deleting:
+  en: "not deleting %{path}: it's too high up or holds the launcher's or Steam's files"
+  ru: "%{path} не удалена: папка слишком близко к корню или содержит файлы лаунчера или Steam"
+err.delete_failed:
+  en: "could not delete %{path}: %{error}"
+  ru: "не удалось удалить %{path}: %{error}"

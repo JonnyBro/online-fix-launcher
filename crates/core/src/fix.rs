@@ -77,6 +77,30 @@ pub fn join_overrides(overrides: &[Override]) -> String {
 		.join(";")
 }
 
+/// The game's top folder for an exe deep inside it, like Unreal's
+/// `Game/Binaries/Win64/Game-Win64-Shipping.exe`; fixes can sit anywhere in it.
+pub fn game_root(exe: &Path) -> PathBuf {
+	let mut dir = exe.parent().unwrap_or(exe);
+	while let Some(name) = dir.file_name().and_then(|n| n.to_str()) {
+		let lower = name.to_ascii_lowercase();
+		if !matches!(
+			lower.as_str(),
+			"binaries" | "win64" | "win32" | "x64" | "x86" | "bin" | "bin64"
+		) {
+			break;
+		}
+		match dir.parent() {
+			Some(parent) => dir = parent,
+			None => break,
+		}
+	}
+	// Unreal puts the shipping exe in `<Project>/Binaries`, next to `Engine`.
+	if dir.parent().is_some_and(|p| p.join("Engine").is_dir()) {
+		dir = dir.parent().unwrap_or(dir);
+	}
+	dir.to_path_buf()
+}
+
 /// Unreal plugins bury their own `steam_api64.dll` eight folders deep.
 const MAX_DEPTH: usize = 12;
 
@@ -308,6 +332,20 @@ mod tests {
 		assert!(info.eos);
 		assert_eq!(info.overrides_string(), "eossdk-win64-shipping=n");
 		assert_eq!(info.photon_dirs, [dir.path().join("Launcher")]);
+	}
+
+	#[test]
+	fn root_of_unreal_exe() {
+		let dir = tempfile::tempdir().unwrap();
+		touch(dir.path(), "Engine/x", "");
+		let exe = dir
+			.path()
+			.join("Game/Binaries/Win64/Game-Win64-Shipping.exe");
+		assert_eq!(game_root(&exe), dir.path());
+		assert_eq!(
+			game_root(Path::new("/g/Game/Game.exe")),
+			Path::new("/g/Game")
+		);
 	}
 
 	#[test]

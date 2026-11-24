@@ -36,7 +36,7 @@ impl Render for ProtonsView {
 						if let Err(e) = std::fs::create_dir_all(&folder) {
 							tracing::warn!("{}: {e}", folder.display());
 						}
-						crate::widgets::open_folder(&folder);
+						crate::widgets::open_path(&folder);
 					}),
 			),
 		)

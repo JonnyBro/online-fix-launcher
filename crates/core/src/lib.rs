@@ -15,7 +15,7 @@ pub mod settings;
 pub mod steam;
 pub mod vdf;
 
-pub use engine::{Command, Engine, Event};
+pub use engine::{Command, Engine, Event, RunState};
 pub use error::{Error, Result};
 pub use paths::AppPaths;
 pub use settings::Settings;
