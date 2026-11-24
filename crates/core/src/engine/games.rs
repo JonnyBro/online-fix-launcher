@@ -204,6 +204,12 @@ impl State {
 		};
 		tracing::info!("launching {}: {}", game.name, plan.display());
 
+		let fix_root = fix::game_root(&game.exe);
+		let fix_info = fix::scan(&fix_root);
+		for change in crate::patch::patch_ini(&fix_info) {
+			tracing::info!("{change}");
+		}
+		let cache = self.paths.cache_dir().to_path_buf();
 		let wait_for_steam = self.settings.start_steam && root.is_some() && !steam::is_running();
 		let sink = self.sink.clone();
 		let done = self.finished.clone();
@@ -213,6 +219,16 @@ impl State {
 		let wine_prefix = prefix.join("pfx");
 		self.running.insert(id.clone(), Running { proton, prefix });
 		tokio::spawn(async move {
+			match crate::patch::patch_photon(&fix_info, &fix_root, &cache).await {
+				Ok(changes) => changes.iter().for_each(|c| tracing::info!("{c}")),
+				Err(e) => {
+					let _ = done.send(Finished::Failed {
+						id,
+						error: t!("err.patch", error = e).into_owned(),
+					});
+					return;
+				}
+			}
 			if wait_for_steam {
 				sink.emit(Event::Run {
 					id: id.clone(),
@@ -258,6 +274,47 @@ impl State {
 					error: e.to_string(),
 				},
 			});
+		});
+	}
+
+	pub(super) fn run_tool(&self, id: &str, tool: crate::tools::WineTool) {
+		let Some(game) = self.library.get(id).cloned() else {
+			return;
+		};
+		let root = steam::root();
+		let libraries = root
+			.as_deref()
+			.map(steam::library_folders)
+			.unwrap_or_default();
+		let builds = proton::find_installed(&self.paths.protons_dir(), root.as_deref(), &libraries);
+		let Some(proton) = proton::choose(
+			&builds,
+			game.proton.as_deref(),
+			self.settings.default_proton.as_deref(),
+		)
+		.cloned() else {
+			self.sink
+				.emit(Event::Error(launch::LaunchError::ProtonMissing.to_string()));
+			return;
+		};
+		let prefix = game.prefix_dir(&self.paths);
+		let steam_root = root.unwrap_or_else(|| {
+			std::env::var_os("HOME")
+				.map(PathBuf::from)
+				.unwrap_or_default()
+				.join(".steam/steam")
+		});
+		let data_dir = self.paths.data_dir().to_path_buf();
+		let sink = self.sink.clone();
+		tokio::spawn(async move {
+			let target = crate::tools::Target {
+				proton: &proton,
+				prefix: &prefix,
+				steam_root,
+			};
+			if let Err(e) = crate::tools::run(tool, &target, &data_dir).await {
+				sink.emit(Event::Error(t!("err.tool", error = e).into_owned()));
+			}
 		});
 	}
 

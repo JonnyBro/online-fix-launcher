@@ -136,11 +136,15 @@ impl Shell {
 						.child(t!("run.now", names = running.join(", ")).into_owned()),
 				)
 			})
-			.children(unpacking.into_iter().map(|(name, progress)| {
-				let percent = format!("{:.0}", progress * 100.);
-				div()
-					.truncate()
-					.child(t!("lib.unpacking_status", name = name, percent = percent).into_owned())
+			.children(unpacking.into_iter().map(|(name, stage)| {
+				let text = match stage {
+					PendingStage::Unpacking(p) => {
+						let percent = format!("{:.0}", p * 100.);
+						t!("lib.unpacking_status", name = name, percent = percent)
+					}
+					PendingStage::Installing => t!("lib.installing_status", name = name),
+				};
+				div().truncate().child(text.into_owned())
 			}))
 	}
 

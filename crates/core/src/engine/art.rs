@@ -124,7 +124,6 @@ async fn fetch(game: &Game, store: &art::ArtStore, key: &str) {
 	}
 }
 
-/// How many pictures the gallery shows.
 const GALLERY_SIZE: usize = 24;
 
 /// Downloads the previews side by side; ones that fail are left out.

@@ -34,6 +34,8 @@ pub struct Settings {
 	#[serde(skip_serializing_if = "String::is_empty")]
 	pub light_scheme: String,
 	pub language: Language,
+	/// Desktop notifications for what happens while the window isn't focused.
+	pub notifications: bool,
 	/// Look for a newer release of the app on GitHub at start.
 	pub check_app_updates: bool,
 	/// The Proton build for games that don't pick one; `None` means the newest.
@@ -44,7 +46,7 @@ pub struct Settings {
 	/// Where archives unpack; empty means `~/Games`.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub games_dir: Option<PathBuf>,
-	/// For covers from SteamGridDB; empty means Steam's own pictures.
+	/// For pictures Steam lacks and for the gallery; empty turns SteamGridDB off.
 	#[serde(skip_serializing_if = "String::is_empty")]
 	pub steamgriddb_key: String,
 }
@@ -56,6 +58,7 @@ impl Default for Settings {
 			dark_scheme: String::new(),
 			light_scheme: String::new(),
 			language: Language::default(),
+			notifications: true,
 			check_app_updates: true,
 			default_proton: None,
 			start_steam: true,
@@ -100,7 +103,7 @@ pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<()> {
 		std::fs::create_dir_all(parent).at(parent)?;
 	}
 	let tmp = path.with_extension("tmp");
-	// API keys will live here.
+	// The SteamGridDB key is in here.
 	write_private(&tmp, bytes).at(&tmp)?;
 	std::fs::rename(&tmp, path).at(path)
 }
@@ -137,6 +140,7 @@ mod tests {
 			dark_scheme: "Nord".into(),
 			light_scheme: String::new(),
 			language: Language::Russian,
+			notifications: false,
 			check_app_updates: false,
 			default_proton: Some("/p/GE-Proton10-1".into()),
 			start_steam: false,

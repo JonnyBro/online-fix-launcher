@@ -39,7 +39,8 @@ impl Category {
 	}
 }
 
-/// Every setting so far applies and saves at once.
+/// Most settings apply and save at once; the games folder and the
+/// SteamGridDB key have their own Save buttons.
 pub struct SettingsView {
 	engine: Rc<Engine>,
 	settings: Settings,
@@ -477,6 +478,35 @@ impl SettingsView {
 					.on_click(cx.listener(|this, checked: &bool, _, cx| {
 						let checked = *checked;
 						this.save_now(|s| s.start_steam = checked);
+						cx.notify();
+					})),
+				cx,
+			))
+			.child(field(
+				t!("chk.title").into(),
+				v_flex()
+					.gap_1()
+					.items_start()
+					.child(
+						Button::new("checkup")
+							.label(t!("chk.button"))
+							.small()
+							.outline()
+							.on_click(cx.listener(|this, _, _, _| {
+								this.engine.send(Command::Checkup { show: true })
+							})),
+					)
+					.child(hint(t!("chk.hint").into(), cx)),
+				cx,
+			))
+			.child(field(
+				t!("set.notifications").into(),
+				Checkbox::new("notifications")
+					.label(t!("set.notify").into_owned())
+					.checked(self.settings.notifications)
+					.on_click(cx.listener(|this, checked: &bool, _, cx| {
+						let checked = *checked;
+						this.save_now(|s| s.notifications = checked);
 						cx.notify();
 					})),
 				cx,

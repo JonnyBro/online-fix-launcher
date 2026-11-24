@@ -1,4 +1,4 @@
-//! Downloading and removing GE-Proton builds.
+//! Downloading and removing Proton builds.
 
 use rust_i18n::t;
 

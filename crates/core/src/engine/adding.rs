@@ -7,10 +7,76 @@ use rust_i18n::t;
 use super::*;
 use crate::archive::{self, ArchiveError};
 use crate::library::Game;
-use crate::{detect, fix};
+use crate::{detect, fix, proton, steam};
 
 /// Games keep their programs near the top.
 const LIST_DEPTH: usize = 8;
+
+/// Where adding a game got to, reported back to the command loop.
+pub(super) enum AddStep {
+	Ready {
+		id: String,
+		name: String,
+		exe: PathBuf,
+		prefix: Option<PathBuf>,
+	},
+	Installed {
+		id: String,
+		name: String,
+		folder: PathBuf,
+		prefix: Option<PathBuf>,
+	},
+	Failed {
+		error: String,
+	},
+}
+
+/// Runs a FreeTP (Inno Setup) installer silently into `target`.
+async fn run_installer(
+	proton: &crate::proton::ProtonBuild,
+	prefix: &Path,
+	steam_root: Option<&Path>,
+	exe: &Path,
+	target: &Path,
+) -> Result<(), String> {
+	std::fs::create_dir_all(prefix).map_err(|e| e.to_string())?;
+	std::fs::create_dir_all(target).map_err(|e| e.to_string())?;
+	let steam_root = steam_root.map(Path::to_path_buf).unwrap_or_else(|| {
+		std::env::var_os("HOME")
+			.map(PathBuf::from)
+			.unwrap_or_default()
+			.join(".steam/steam")
+	});
+	tracing::info!("installing {} into {}", exe.display(), target.display());
+	let status = tokio::process::Command::new(proton.script())
+		.arg("run")
+		.arg(exe)
+		.arg(format!("/DIR={}", windows_path(target)))
+		.args(["/TASKS=", "/SILENT", "/SUPPRESSMSGBOXES"])
+		.current_dir(exe.parent().unwrap_or(Path::new("/")))
+		.env("STEAM_COMPAT_DATA_PATH", prefix)
+		.env("STEAM_COMPAT_CLIENT_INSTALL_PATH", steam_root)
+		.env("WINEDEBUG", "-all")
+		.stdin(std::process::Stdio::null())
+		.status()
+		.await
+		.map_err(|e| e.to_string())?;
+	// Inno Setup can hand off to a second process and quit.
+	let _ = tokio::process::Command::new(proton.wine_bin("wineserver"))
+		.arg("-w")
+		.env("WINEPREFIX", prefix.join("pfx"))
+		.status()
+		.await;
+	if !status.success() {
+		return Err(t!("err.installer_code", code = status.code().unwrap_or(-1)).into_owned());
+	}
+	Ok(())
+}
+
+/// Wine sees the Linux root as drive Z:.
+fn windows_path(path: &Path) -> String {
+	format!("Z:{}", path.display()).replace('/', "\\")
+}
 
 impl State {
 	pub(super) fn inspect_source(&self, request: u64, path: PathBuf, password: Option<String>) {
@@ -21,49 +87,130 @@ impl State {
 		});
 	}
 
-	pub(super) fn add_new_game(&mut self, new: NewGame) {
-		let Some(unpack) = new.unpack.clone() else {
-			self.add_game(new.name, new.exe, new.prefix);
+	pub(super) fn add_new_game(&mut self, mut new: NewGame) {
+		if new.unpack.is_none() && new.install_into.is_none() {
+			self.add_game(new.id, new.name, new.exe, new.prefix);
 			return;
-		};
-		let id = Game::new("", "").id;
+		}
+		let id = new.id.clone().unwrap_or_else(|| Game::new("", "").id);
+		// An installer's archive is only needed until it ran.
+		let scratch = self.paths.cache_dir().join("installers").join(&id);
+		if new.install_into.is_some()
+			&& let Some(unpack) = &mut new.unpack
+		{
+			unpack.into = scratch.clone();
+			unpack.game_dir = scratch.clone();
+		}
+		let installer = new.install_into.as_ref().map(|target| {
+			let root = steam::root();
+			let libraries = root
+				.as_deref()
+				.map(steam::library_folders)
+				.unwrap_or_default();
+			let builds =
+				proton::find_installed(&self.paths.protons_dir(), root.as_deref(), &libraries);
+			let proton =
+				proton::choose(&builds, None, self.settings.default_proton.as_deref()).cloned();
+			let prefix = new
+				.prefix
+				.clone()
+				.unwrap_or_else(|| self.paths.default_prefixes_dir().join(&id));
+			(proton, prefix, root, target.clone())
+		});
 		let sink = self.sink.clone();
 		let done = self.unpacked.clone();
-		let name = new.name.clone();
 		tokio::spawn(async move {
-			let report = |progress: f32| {
-				sink.emit(Event::Unpacking {
+			let pending_id = id.clone();
+			let pending = |stage: PendingStage| {
+				sink.emit(Event::Pending {
 					id: id.clone(),
-					name: name.clone(),
-					progress,
+					name: new.name.clone(),
+					stage,
 				})
 			};
-			report(0.);
-			let result = unpack_archive(&unpack, report).await;
-			sink.emit(Event::UnpackEnded(id.clone()));
-			let _ = done.send((new, result));
+			let mut exe = new.exe.clone();
+			if let Some(unpack) = &new.unpack {
+				pending(PendingStage::Unpacking(0.));
+				if let Err(e) =
+					unpack_archive(unpack, |p| pending(PendingStage::Unpacking(p))).await
+				{
+					sink.emit(Event::PendingEnded(id.clone()));
+					let _ = done.send(AddStep::Failed {
+						error: t!("err.unpack", name = new.name, error = e).into_owned(),
+					});
+					return;
+				}
+				exe = unpack.into.join(&new.exe);
+			}
+			let step = match installer {
+				None => AddStep::Ready {
+					id,
+					name: new.name,
+					exe,
+					prefix: new.prefix,
+				},
+				Some((proton, prefix, root, target)) => {
+					pending(PendingStage::Installing);
+					let result = match proton {
+						Some(proton) => {
+							run_installer(&proton, &prefix, root.as_deref(), &exe, &target).await
+						}
+						None => Err(crate::launch::LaunchError::ProtonMissing.to_string()),
+					};
+					let _ = std::fs::remove_dir_all(&scratch);
+					match result {
+						Ok(()) => AddStep::Installed {
+							id: id.clone(),
+							name: new.name,
+							folder: target,
+							prefix: new.prefix,
+						},
+						Err(e) => AddStep::Failed {
+							error: t!("err.install", name = new.name, error = e).into_owned(),
+						},
+					}
+				}
+			};
+			sink.emit(Event::PendingEnded(pending_id));
+			let _ = done.send(step);
 		});
 	}
 
-	pub(super) fn unpacked(&mut self, new: NewGame, result: Result<(), String>) {
-		match result {
-			Ok(()) => {
-				let into = new
-					.unpack
-					.as_ref()
-					.map(|u| u.into.clone())
-					.unwrap_or_default();
-				self.add_game(new.name, into.join(&new.exe), new.prefix);
-			}
-			Err(e) => self.sink.emit(Event::Error(
-				t!("err.unpack", name = new.name, error = e).into_owned(),
-			)),
+	pub(super) fn add_step(&mut self, step: AddStep) {
+		match step {
+			AddStep::Ready {
+				id,
+				name,
+				exe,
+				prefix,
+			} => self.add_game(Some(id), name, exe, prefix),
+			AddStep::Installed {
+				id,
+				name,
+				folder,
+				prefix,
+			} => self.sink.emit(Event::Installed {
+				id,
+				name,
+				folder,
+				prefix,
+			}),
+			AddStep::Failed { error } => self.sink.emit(Event::Error(error)),
 		}
 	}
 
-	pub(super) fn add_game(&mut self, name: String, exe: PathBuf, prefix: Option<PathBuf>) {
+	pub(super) fn add_game(
+		&mut self,
+		id: Option<String>,
+		name: String,
+		exe: PathBuf,
+		prefix: Option<PathBuf>,
+	) {
 		let info = fix::scan(&fix::game_root(&exe));
 		let mut game = Game::new(name, exe);
+		if let Some(id) = id {
+			game.id = id;
+		}
 		game.prefix = prefix;
 		game.fix_overrides = info.overrides_string();
 		game.real_app_id = info.real_app_id;
@@ -90,6 +237,7 @@ async fn inspect(path: &Path, password: Option<String>) -> Result<Source, Inspec
 	if path.is_dir() {
 		let files = detect::list_files(path, LIST_DEPTH);
 		let candidates = sorted_candidates(&files, path);
+		let installers = installers(&candidates, &files);
 		let pick = detect::auto_pick(&files)
 			.cloned()
 			.or_else(|| (candidates.len() == 1).then(|| candidates[0].clone()));
@@ -105,6 +253,7 @@ async fn inspect(path: &Path, password: Option<String>) -> Result<Source, Inspec
 			pick,
 			name,
 			top_dir: None,
+			installers,
 			fix: Some(fix::scan(path)),
 		});
 	}
@@ -124,6 +273,7 @@ async fn inspect(path: &Path, password: Option<String>) -> Result<Source, Inspec
 			.collect();
 		let top_dir = single_top_dir(&entries);
 		let candidates = sorted_candidates(&files, Path::new(""));
+		let installers = installers(&candidates, &files);
 		let pick = detect::auto_pick(&files)
 			.cloned()
 			.or_else(|| (candidates.len() == 1).then(|| candidates[0].clone()));
@@ -140,11 +290,14 @@ async fn inspect(path: &Path, password: Option<String>) -> Result<Source, Inspec
 			pick,
 			name,
 			top_dir,
+			installers,
 			fix: None,
 		});
 	}
 	if path.is_file() {
 		let root = fix::game_root(path);
+		let siblings = detect::list_files(path.parent().unwrap_or(&root), 0);
+		let installers = installers(&[path.to_path_buf()], &siblings);
 		return Ok(Source {
 			kind: SourceKind::Exe,
 			path: path.to_path_buf(),
@@ -153,10 +306,19 @@ async fn inspect(path: &Path, password: Option<String>) -> Result<Source, Inspec
 			pick: Some(path.to_path_buf()),
 			name: detect::game_name(path),
 			top_dir: None,
+			installers,
 			fix: Some(fix::scan(&root)),
 		});
 	}
 	Err(InspectError::Failed(t!("err.not_a_source").into_owned()))
+}
+
+fn installers(candidates: &[PathBuf], files: &[PathBuf]) -> Vec<PathBuf> {
+	candidates
+		.iter()
+		.filter(|c| detect::is_freetp_installer(c, files))
+		.cloned()
+		.collect()
 }
 
 /// Shallow programs first: the game's exe is rarely deep inside.
@@ -295,6 +457,25 @@ mod tests {
 		);
 	}
 
+	#[test]
+	fn installer_paths() {
+		assert_eq!(
+			windows_path(Path::new("/mnt/games/My Game")),
+			"Z:\\mnt\\games\\My Game"
+		);
+	}
+
+	#[tokio::test]
+	async fn finds_freetp_installers() {
+		let dir = tempfile::tempdir().unwrap();
+		std::fs::write(dir.path().join("setup.exe"), "").unwrap();
+		std::fs::write(dir.path().join("data.ftp"), "").unwrap();
+		let source = inspect(dir.path(), None).await.unwrap();
+		assert_eq!(source.installers, [dir.path().join("setup.exe")]);
+		let exe = inspect(&dir.path().join("setup.exe"), None).await.unwrap();
+		assert_eq!(exe.installers, [dir.path().join("setup.exe")]);
+	}
+
 	#[tokio::test]
 	async fn inspects_a_folder() {
 		let dir = tempfile::tempdir().unwrap();
@@ -308,6 +489,7 @@ mod tests {
 		assert_eq!(source.name, "Cool Game");
 		assert_eq!(source.candidates, [game.join("bin/Cool.exe")]);
 		assert_eq!(source.pick, Some(game.join("bin/Cool.exe")));
+		assert!(source.installers.is_empty());
 		assert_eq!(
 			source.fix.unwrap().vendor,
 			Some(crate::fix::Vendor::OnlineFix)

@@ -18,7 +18,7 @@ err.library_parse:
   en: "could not read the game list from %{path}: %{source}"
   ru: "не удалось прочитать список игр из %{path}: %{source}"
 err.exe_missing:
-  en: "the game file is gone: %{path}"
+  en: "the game file isn't there: %{path}"
   ru: "файл игры не найден: %{path}"
 err.proton_missing:
   en: "no Proton build to run the game with"
@@ -36,8 +36,8 @@ err.launch:
   en: "could not start %{name}: %{error}"
   ru: "не удалось запустить %{name}: %{error}"
 err.runtime_missing:
-  en: "Steam Linux Runtime isn't installed, running without it. Install it with steam://install/%{app_id}"
-  ru: "Steam Linux Runtime не установлен, запуск без него. Установить: steam://install/%{app_id}"
+  en: "Steam Linux Runtime isn't installed, so the game runs without it. To install it, open steam://install/%{app_id}"
+  ru: "Steam Linux Runtime не установлен, игра запускается без него. Чтобы установить, откройте steam://install/%{app_id}"
 err.steam_not_started:
   en: "Steam didn't start or nobody signed in"
   ru: "Steam не запустился или вход не выполнен"
@@ -95,3 +95,96 @@ err.proton_install:
 err.proton_not_ours:
   en: "only builds the launcher downloaded can be removed here"
   ru: "удалять здесь можно только сборки, скачанные лаунчером"
+patch.freetp:
+  en: "FreeTP app id patch applied to %{file}"
+  ru: "Патч app id FreeTP применён к %{file}"
+patch.extra_protection:
+  en: "ExtraProtection turned off in %{file}"
+  ru: "ExtraProtection выключен в %{file}"
+patch.photon_linked:
+  en: "Photon launcher in %{dir} got the game's Newtonsoft.Json"
+  ru: "Photon-лаунчер в %{dir} получил Newtonsoft.Json из игры"
+patch.photon_nuget:
+  en: "Photon launcher in %{dir} got Newtonsoft.Json from NuGet"
+  ru: "Photon-лаунчер в %{dir} получил Newtonsoft.Json с NuGet"
+err.patch:
+  en: "could not prepare the fix: %{error}"
+  ru: "не удалось подготовить фикс: %{error}"
+err.install:
+  en: "could not install %{name}: %{error}"
+  ru: "не удалось установить %{name}: %{error}"
+err.installer_code:
+  en: "the installer quit with code %{code}"
+  ru: "установщик завершился с кодом %{code}"
+err.tool:
+  en: "the tool failed: %{error}"
+  ru: "инструмент завершился с ошибкой: %{error}"
+chk.steam_ok:
+  en: "Steam is installed"
+  ru: "Steam установлен"
+chk.steam_missing:
+  en: "Steam isn't installed"
+  ru: "Steam не установлен"
+chk.steam_missing_detail:
+  en: "Fixes need the Steam client running, and the Steam Linux Runtime is installed through it. Install Steam from your distribution's packages, not from Flatpak."
+  ru: "Фиксам нужен запущенный клиент Steam, и Steam Linux Runtime ставится через него. Установите Steam из пакетов дистрибутива, не из Flatpak."
+chk.proton_ok:
+  en: "Proton builds found: %{n}"
+  ru: "Найдено сборок Proton: %{n}"
+chk.proton_default:
+  en: "Games run with %{name} unless they pick another."
+  ru: "Игры запускаются через %{name}, если не выбрано другое."
+chk.proton_missing:
+  en: "No Proton build"
+  ru: "Нет ни одной сборки Proton"
+chk.proton_missing_detail:
+  en: "Install GE-Proton or Proton-CachyOS on the Proton tab."
+  ru: "Установите GE-Proton или Proton-CachyOS на вкладке Proton."
+chk.proton_default_gone:
+  en: "The default Proton build is gone; the newest is used instead"
+  ru: "Основная сборка Proton пропала; вместо неё используется самая новая"
+chk.runtime_ok:
+  en: "Steam Linux Runtime is in place"
+  ru: "Steam Linux Runtime на месте"
+chk.runtime_missing:
+  en: "Steam Linux Runtime %{id} isn't installed"
+  ru: "Steam Linux Runtime %{id} не установлен"
+chk.runtime_missing_detail:
+  en: "One of the Proton builds needs it. Games start without it, though some may not work."
+  ru: "Он нужен одной из сборок Proton. Игры запустятся и без него, но некоторые могут не работать."
+chk.archiver_ok:
+  en: "7z is installed"
+  ru: "7z установлен"
+chk.archiver_rar_only:
+  en: "Only unrar is installed, so RAR archives open but 7z and ZIP don't"
+  ru: "Установлен только unrar: RAR откроются, а 7z и ZIP нет"
+chk.archiver_missing:
+  en: "No program to unpack archives"
+  ru: "Нет программы для распаковки архивов"
+chk.archiver_detail:
+  en: "Install the 7zip package to add games straight from archives."
+  ru: "Установите пакет 7zip, чтобы добавлять игры прямо из архивов."
+chk.winetricks_ok:
+  en: "winetricks is installed"
+  ru: "winetricks установлен"
+chk.winetricks_missing:
+  en: "winetricks isn't installed"
+  ru: "winetricks не установлен"
+chk.winetricks_detail:
+  en: "The launcher downloads it the first time you open it from a game's tools."
+  ru: "Лаунчер скачает его, когда вы впервые откроете его из инструментов игры."
+chk.games_dir_ok:
+  en: "The games folder is writable"
+  ru: "В папку для игр можно писать"
+chk.games_dir_bad:
+  en: "Can't write to the games folder"
+  ru: "Нельзя писать в папку для игр"
+chk.sgdb_ok:
+  en: "SteamGridDB key is set"
+  ru: "Ключ SteamGridDB указан"
+chk.sgdb_none:
+  en: "No SteamGridDB key"
+  ru: "Ключ SteamGridDB не указан"
+chk.sgdb_none_detail:
+  en: "Covers come from Steam. The key only matters for games Steam has no pictures for."
+  ru: "Обложки берутся из Steam. Ключ нужен только для игр, у которых в Steam нет картинок."

@@ -1,6 +1,13 @@
 use super::*;
 
 impl Shell {
+	/// A desktop notification, only while the window isn't focused.
+	fn desktop_note(&self, title: String, body: String, window: &Window) {
+		if self.settings.notifications && !window.is_window_active() {
+			crate::notify::send(title, body);
+		}
+	}
+
 	pub(super) fn drain_events(&mut self, window: &mut Window, cx: &mut Context<Self>) {
 		let events: Vec<Event> = self.engine.poll_events().collect();
 		for event in events {
@@ -29,6 +36,8 @@ impl Shell {
 				.library
 				.update(cx, |l, cx| l.set_games(games, window, cx)),
 			Event::GameAdded(id) => {
+				let name = self.library.read(cx).game_name(&id).unwrap_or_default();
+				self.desktop_note(t!("note.added").into_owned(), name, window);
 				self.tab = Tab::Library;
 				self.library
 					.update(cx, |l, cx| l.select(Some(id), window, cx));
@@ -58,10 +67,16 @@ impl Shell {
 					dialog.update(cx, |d, cx| d.inspected(result, window, cx));
 				}
 			}
-			Event::Unpacking { id, name, progress } => self
+			Event::Pending { id, name, stage } => self
 				.library
-				.update(cx, |l, cx| l.set_unpacking(id, name, progress, cx)),
-			Event::UnpackEnded(id) => self.library.update(cx, |l, cx| l.unpack_ended(&id, cx)),
+				.update(cx, |l, cx| l.set_pending(id, name, stage, cx)),
+			Event::PendingEnded(id) => self.library.update(cx, |l, cx| l.unpack_ended(&id, cx)),
+			Event::Installed {
+				id,
+				name,
+				folder,
+				prefix,
+			} => self.open_add(folder, Some(Preset { id, name, prefix }), window, cx),
 			Event::ArtChanged(id) => self.library.update(cx, |l, cx| l.art_changed(id, cx)),
 			Event::ArtChoices { request, result } => {
 				if let Some(gallery) = self.gallery.as_ref().and_then(|g| g.upgrade())
@@ -73,8 +88,26 @@ impl Shell {
 			Event::SteamGridDbKey(result) => self
 				.settings_view
 				.update(cx, |s, cx| s.key_checked(result, cx)),
-			Event::Notice(text) => self.notify(Notification::info(text), window, cx),
-			Event::Error(text) => self.notify(Notification::error(text), window, cx),
+			Event::Checkup { checks, show } => {
+				use onlinefix_launcher_core::checkup::Level;
+				if show {
+					crate::dialogs::checkup::open(checks, window, cx);
+				} else if checks.iter().any(|c| c.level == Level::Problem) {
+					let note = Notification::warning(t!("chk.problems_found").into_owned())
+						.on_click(move |_, window, cx| {
+							crate::dialogs::checkup::open(checks.clone(), window, cx)
+						});
+					window.push_notification(note, cx);
+				}
+			}
+			Event::Notice(text) => {
+				self.desktop_note(crate::APP_NAME.to_owned(), text.clone(), window);
+				self.notify(Notification::info(text), window, cx)
+			}
+			Event::Error(text) => {
+				self.desktop_note(t!("note.error").into_owned(), text.clone(), window);
+				self.notify(Notification::error(text), window, cx)
+			}
 		}
 	}
 }

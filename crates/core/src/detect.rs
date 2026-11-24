@@ -109,7 +109,7 @@ pub fn base_dir(files: &[PathBuf]) -> Option<&Path> {
 		.min_by_key(|p| p.components().count())
 }
 
-/// A launcher's name says nothing about the game, its folder does.
+/// The exe's name, or its folder's name when the exe is a launcher.
 pub fn game_name(exe: &Path) -> String {
 	let stem = exe
 		.file_stem()

@@ -11,8 +11,8 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use crate::library::Game;
 use crate::proton::ProtonBuild;
 
-/// DXVK and VKD3D come with Proton as native DLLs; fixes that override
-/// `winmm` and the like would otherwise leave Wine's own Direct3D in charge.
+/// Proton puts DXVK and VKD3D into the prefix as native DLLs; this makes
+/// Wine load them instead of its own Direct3D.
 const DXVK_OVERRIDES: &str =
 	"d3d11=n;d3d10=n;d3d10core=n;dxgi=n;openvr_api_dxvk=n;d3d12=n;d3d12core=n;d3d9=n;d3d8=n";
 

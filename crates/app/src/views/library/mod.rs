@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 use gpui_kit::component::button::{Button, ButtonVariant, ButtonVariants};
 use gpui_kit::component::checkbox::Checkbox;
-use gpui_kit::component::input::{Input, InputEvent, InputState};
+use gpui_kit::component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
 use gpui_kit::component::menu::{DropdownMenu, PopupMenuItem};
 use gpui_kit::component::progress::Progress;
 use gpui_kit::component::{
@@ -19,9 +19,10 @@ use gpui_kit::prelude::*;
 use gpui_kit::*;
 use onlinefix_launcher_core::art::{ArtKind, ArtStore};
 use onlinefix_launcher_core::fix;
-use onlinefix_launcher_core::library::Game;
+use onlinefix_launcher_core::library::{Game, env_from_text, env_to_text};
 use onlinefix_launcher_core::proton::ProtonBuild;
-use onlinefix_launcher_core::{AppPaths, Command, Engine, RunState};
+use onlinefix_launcher_core::tools::WineTool;
+use onlinefix_launcher_core::{AppPaths, Command, Engine, PendingStage, RunState};
 
 use crate::theme::Mono;
 use crate::widgets::{empty_state, format_date, format_play_time, open_path};
@@ -37,9 +38,9 @@ struct Fields {
 	args_after: Entity<InputState>,
 	overrides: Entity<InputState>,
 	prefix: Entity<InputState>,
+	env: Entity<TextareaState>,
 }
 
-/// Pictures found for a game.
 #[derive(Default, Clone)]
 struct Art {
 	grid: Option<PathBuf>,
@@ -56,11 +57,11 @@ pub enum LibraryEvent {
 	},
 }
 
-/// An archive being unpacked for a game not in the list yet.
+/// A game not in the list yet, being unpacked or installed.
 struct Unpacking {
 	id: String,
 	name: String,
-	progress: f32,
+	stage: PendingStage,
 }
 
 pub struct LibraryView {
@@ -97,6 +98,11 @@ impl LibraryView {
 			args_after: input(t!("game.args_after_hint").into_owned(), cx),
 			overrides: input(t!("game.overrides_hint").into_owned(), cx),
 			prefix: input(t!("add.prefix_default").into_owned(), cx),
+			env: cx.new(|cx| {
+				TextareaState::new(window, cx)
+					.rows(3)
+					.placeholder("DXVK_HUD=fps\nPROTON_ENABLE_NVAPI=1")
+			}),
 		};
 		let edit = |input: &Entity<InputState>,
 		            apply: fn(&mut Game, String),
@@ -111,7 +117,16 @@ impl LibraryView {
 				}
 			})
 		};
+		let env_changes = cx.subscribe_in(&fields.env, window, |this, input, event, _, cx| {
+			if matches!(event, InputEvent::Change)
+				&& let Some(draft) = &mut this.draft
+			{
+				draft.env = env_from_text(&input.read(cx).value());
+				cx.notify();
+			}
+		});
 		let subscriptions = vec![
+			env_changes,
 			cx.subscribe_in(&search, window, |_, _, event, _, cx| {
 				if matches!(event, InputEvent::Change) {
 					cx.notify();
@@ -162,7 +177,7 @@ impl LibraryView {
 			// Saved elsewhere (play time after a run); keep edits in progress.
 			(Some(_), Some(saved)) if self.draft.as_ref() == before.as_ref() => {
 				self.draft = Some(saved);
-				self.fill_fields(window, cx);
+				self.fill_fields(false, window, cx);
 			}
 			_ => {}
 		}
@@ -183,16 +198,16 @@ impl LibraryView {
 		cx.notify();
 	}
 
-	pub fn set_unpacking(
+	pub fn set_pending(
 		&mut self,
 		id: String,
 		name: String,
-		progress: f32,
+		stage: PendingStage,
 		cx: &mut Context<Self>,
 	) {
 		match self.unpacking.iter_mut().find(|u| u.id == id) {
-			Some(u) => u.progress = progress,
-			None => self.unpacking.push(Unpacking { id, name, progress }),
+			Some(u) => u.stage = stage,
+			None => self.unpacking.push(Unpacking { id, name, stage }),
 		}
 		cx.notify();
 	}
@@ -202,11 +217,11 @@ impl LibraryView {
 		cx.notify();
 	}
 
-	/// Names and progress of archives being unpacked, for the status bar.
-	pub fn unpacking(&self) -> Vec<(String, f32)> {
+	/// Games being unpacked or installed, for the status bar.
+	pub fn unpacking(&self) -> Vec<(String, PendingStage)> {
 		self.unpacking
 			.iter()
-			.map(|u| (u.name.clone(), u.progress))
+			.map(|u| (u.name.clone(), u.stage))
 			.collect()
 	}
 
@@ -224,6 +239,13 @@ impl LibraryView {
 		cx.notify();
 	}
 
+	pub fn game_name(&self, id: &str) -> Option<String> {
+		self.games
+			.iter()
+			.find(|g| g.id == id)
+			.map(|g| g.name.clone())
+	}
+
 	/// Names of games that are up, for the status bar.
 	pub fn running(&self) -> Vec<String> {
 		self.games
@@ -236,7 +258,7 @@ impl LibraryView {
 	pub fn select(&mut self, id: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
 		self.selected = id;
 		self.draft = self.saved().cloned();
-		self.fill_fields(window, cx);
+		self.fill_fields(true, window, cx);
 		cx.notify();
 	}
 
@@ -249,7 +271,8 @@ impl LibraryView {
 		self.draft.as_ref() != self.saved()
 	}
 
-	fn fill_fields(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+	/// `force` rewrites the environment text even when it means the same.
+	fn fill_fields(&mut self, force: bool, window: &mut Window, cx: &mut Context<Self>) {
 		let Some(game) = self.draft.clone() else {
 			return;
 		};
@@ -266,6 +289,13 @@ impl LibraryView {
 			),
 		] {
 			input.update(cx, |input, cx| input.set_value(text, window, cx));
+		}
+		let env = env_to_text(&game.env);
+		// Rewriting the text while it's being typed in would eat bad lines.
+		if force || env_from_text(&self.fields.env.read(cx).value()) != game.env {
+			self.fields
+				.env
+				.update(cx, |input, cx| input.set_value(env, window, cx));
 		}
 	}
 

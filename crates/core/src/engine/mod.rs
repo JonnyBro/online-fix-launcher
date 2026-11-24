@@ -22,8 +22,8 @@ use crate::paths::AppPaths;
 use crate::settings::Settings;
 
 pub use messages::{
-	ArtOption, ArtSource, Command, Event, InspectError, NewGame, RunState, Source, SourceKind,
-	Unpack,
+	ArtOption, ArtSource, Command, Event, InspectError, NewGame, PendingStage, RunState, Source,
+	SourceKind, Unpack,
 };
 
 /// Called after every event so the UI can wake up and repaint.
@@ -110,7 +110,7 @@ struct State {
 	library_broken: bool,
 	running: HashMap<String, games::Running>,
 	finished: mpsc::UnboundedSender<games::Finished>,
-	unpacked: mpsc::UnboundedSender<(NewGame, std::result::Result<(), String>)>,
+	unpacked: mpsc::UnboundedSender<adding::AddStep>,
 	art: crate::art::ArtStore,
 	/// A build was installed or removed; the list is read again.
 	protons_changed: mpsc::UnboundedSender<()>,

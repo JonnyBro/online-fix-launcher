@@ -17,10 +17,9 @@ use onlinefix_launcher_core::{Command, Engine, Settings};
 use crate::theme::Mono;
 use crate::widgets::open_path;
 
-/// How many releases the list shows.
 const RELEASES_SHOWN: usize = 15;
 
-/// Proton builds on this computer, and GE-Proton releases to download.
+/// Proton builds on this computer, and releases to download.
 pub struct ProtonsView {
 	engine: Rc<Engine>,
 	folder: PathBuf,

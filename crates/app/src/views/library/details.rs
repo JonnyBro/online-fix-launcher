@@ -123,6 +123,30 @@ impl LibraryView {
 						)
 				})
 		};
+		let tools_menu = {
+			let view = cx.entity().downgrade();
+			let id = game.id.clone();
+			Button::new("tools-menu")
+				.label(t!("tools.menu"))
+				.icon(Icon::new(IconName::Settings2))
+				.small()
+				.outline()
+				.disabled(run.is_some())
+				.dropdown_menu(move |mut menu, _, _| {
+					for tool in WineTool::ALL {
+						let (view, id) = (view.clone(), id.clone());
+						menu = menu.item(PopupMenuItem::new(tool_label(tool)).on_click(
+							move |_, _, cx| {
+								let id = id.clone();
+								let _ = view.update(cx, |this, _| {
+									this.engine.send(Command::RunTool { id, tool })
+								});
+							},
+						));
+					}
+					menu
+				})
+		};
 		let folders = {
 			let game_dir = game.work_dir().to_path_buf();
 			let prefix = game.prefix_dir(&self.paths);
@@ -131,6 +155,7 @@ impl LibraryView {
 				.gap_2()
 				.flex_wrap()
 				.child(art_menu)
+				.child(tools_menu)
 				.child(
 					Button::new("open-game-dir")
 						.label(t!("game.open_folder"))
@@ -353,6 +378,18 @@ impl LibraryView {
 			)
 			.child(
 				v_flex()
+					.gap_1()
+					.child(label(t!("game.env").into()))
+					.child(Textarea::new(&self.fields.env).small().mono(cx))
+					.child(
+						div()
+							.text_xs()
+							.text_color(theme.muted_foreground)
+							.child(t!("game.env_hint").into_owned()),
+					),
+			)
+			.child(
+				v_flex()
 					.gap_2()
 					.child(toggle(
 						"steam-runtime",
@@ -438,7 +475,7 @@ impl LibraryView {
 					.outline()
 					.on_click(cx.listener(|this, _, window, cx| {
 						this.draft = this.saved().cloned();
-						this.fill_fields(window, cx);
+						this.fill_fields(true, window, cx);
 						cx.notify();
 					})),
 			)
@@ -548,4 +585,17 @@ impl LibraryView {
 				)
 		});
 	}
+}
+
+fn tool_label(tool: WineTool) -> String {
+	match tool {
+		WineTool::Winecfg => t!("tools.winecfg"),
+		WineTool::Winetricks => t!("tools.winetricks"),
+		WineTool::Regedit => t!("tools.regedit"),
+		WineTool::Taskmgr => t!("tools.taskmgr"),
+		WineTool::Control => t!("tools.control"),
+		WineTool::Explorer => t!("tools.explorer"),
+		WineTool::Console => t!("tools.console"),
+	}
+	.into_owned()
 }

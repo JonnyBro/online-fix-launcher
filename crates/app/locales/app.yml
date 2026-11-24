@@ -27,8 +27,8 @@ lib.empty:
   en: "No games yet"
   ru: "Игр пока нет"
 lib.empty_hint:
-  en: "Add a game with an OnlineFix or FreeTP fix: pick its .exe or drop it on the window."
-  ru: "Добавьте игру с фиксом OnlineFix или FreeTP: выберите её .exe или перетащите его в окно."
+  en: "Add a game with an OnlineFix or FreeTP fix: pick its folder, archive or .exe, or drop one on the window."
+  ru: "Добавьте игру с фиксом OnlineFix или FreeTP: выберите её папку, архив или .exe либо перетащите их в окно."
 set.cat_appearance:
   en: "Appearance and language"
   ru: "Вид и язык"
@@ -110,9 +110,6 @@ lib.search:
 lib.add:
   en: "Add game"
   ru: "Добавить игру"
-lib.pick_exe:
-  en: "Pick the game's .exe"
-  ru: "Выберите .exe игры"
 lib.no_match:
   en: "Nothing found"
   ru: "Ничего не найдено"
@@ -240,16 +237,16 @@ game.remove_title:
   en: "Remove the game?"
   ru: "Удалить игру?"
 game.remove_text:
-  en: "%{name} leaves the library. Pick what goes from the disk too:"
-  ru: "%{name} пропадёт из библиотеки. Отметьте, что удалить и с диска:"
+  en: "%{name} will be removed from the library. Choose what else to delete from the disk:"
+  ru: "%{name} пропадёт из библиотеки. Отметьте, что ещё удалить с диска:"
 game.delete_prefix:
-  en: "Delete the Wine prefix (saves kept inside it go too)"
-  ru: "Удалить Wine-префикс (сохранения внутри него тоже)"
+  en: "Delete the Wine prefix, along with any saves inside it"
+  ru: "Удалить Wine-префикс вместе с сохранениями внутри него"
 game.delete_game_dir:
   en: "Delete the game folder"
   ru: "Удалить папку игры"
 game.delete_game_dir_warning:
-  en: "The whole folder goes, with everything in it. This can't be undone."
+  en: "The whole folder is deleted with everything in it. This can't be undone."
   ru: "Папка удалится целиком, со всем содержимым. Отменить это нельзя."
 common.browse:
   en: "Browse"
@@ -279,8 +276,8 @@ add.inspecting:
   en: "Looking inside…"
   ru: "Смотрю, что внутри…"
 add.password_needed:
-  en: "The archive wants a password, and online-fix.me isn't it."
-  ru: "Архиву нужен пароль, и online-fix.me не подошёл."
+  en: "The archive needs a password, and online-fix.me didn't work."
+  ru: "Архиву нужен пароль, а online-fix.me не подошёл."
 add.password_wrong:
   en: "That password didn't work either."
   ru: "Этот пароль тоже не подошёл."
@@ -297,8 +294,8 @@ add.no_exe:
   en: "No program found that could start a game."
   ru: "Не нашлось программы, которая могла бы запустить игру."
 add.no_fix:
-  en: "No multiplayer fix found; the game will run as it is."
-  ru: "Сетевой фикс не найден; игра запустится как есть."
+  en: "No multiplayer fix found. The game will run without one."
+  ru: "Сетевой фикс не найден. Игра запустится без него."
 add.fix_found:
   en: "%{vendor} fix found, %{dlls} DLL(s) to override"
   ru: "Найден фикс %{vendor}, DLL для подмены: %{dlls}"
@@ -357,8 +354,8 @@ set.sgdb_ok:
   en: "The key works."
   ru: "Ключ работает."
 set.sgdb_hint:
-  en: "Covers come from Steam. With a key, SteamGridDB fills in what Steam lacks and offers a gallery to pick from. Get a key on your SteamGridDB profile:"
-  ru: "Обложки берутся из Steam. С ключом SteamGridDB добавит то, чего нет в Steam, и откроет галерею для выбора. Ключ выдают в профиле SteamGridDB:"
+  en: "Covers come from Steam. With a key, SteamGridDB fills in what Steam doesn't have, and you can pick pictures from its gallery. You get a key in your SteamGridDB profile:"
+  ru: "Обложки берутся из Steam. С ключом SteamGridDB подставит то, чего нет в Steam, и можно будет выбирать картинки из его галереи. Ключ выдают в профиле SteamGridDB:"
 set.steam:
   en: "Steam"
   ru: "Steam"
@@ -390,10 +387,10 @@ proton.auto_is:
   en: "Newest (now %{name})"
   ru: "Самая новая (сейчас %{name})"
 proton.none_installed:
-  en: "No Proton build found yet. Install a GE-Proton below."
-  ru: "Сборок Proton пока нет. Установите GE-Proton ниже."
+  en: "No Proton build found yet. Install one below."
+  ru: "Сборок Proton пока нет. Установите одну ниже."
 proton.src_launcher:
-  en: "downloaded here"
+  en: "downloaded by the launcher"
   ru: "скачан лаунчером"
 proton.src_compat:
   en: "compatibilitytools.d"
@@ -438,11 +435,95 @@ proton.download_title:
   en: "Download"
   ru: "Скачать"
 proton.ge_hint:
-  en: "GloriousEggroll's build with extra game fixes; the usual pick."
-  ru: "Сборка GloriousEggroll с дополнительными фиксами для игр; обычный выбор."
+  en: "GloriousEggroll's build with extra fixes for games. Most people use this one."
+  ru: "Сборка GloriousEggroll с дополнительными фиксами для игр. Обычно берут её."
 proton.cachy_hint_v3:
   en: "CachyOS's build. Your CPU supports x86-64-v3, so the faster v3 variant is downloaded."
   ru: "Сборка CachyOS. Процессор поддерживает x86-64-v3, поэтому скачивается более быстрый вариант v3."
 proton.cachy_hint:
   en: "CachyOS's build. Your CPU lacks x86-64-v3, so the plain x86_64 variant is downloaded."
   ru: "Сборка CachyOS. Процессор не поддерживает x86-64-v3, поэтому скачивается обычный вариант x86_64."
+lib.installing:
+  en: "Installing"
+  ru: "Установка"
+lib.installing_status:
+  en: "Installing %{name}…"
+  ru: "Установка %{name}…"
+add.freetp_installer:
+  en: "This is a FreeTP installer. It installs the game through Proton into the folder below without asking questions, and then you pick the game's program."
+  ru: "Это установщик FreeTP. Он без вопросов установит игру через Proton в папку ниже, а потом вы выберете программу игры."
+add.install_into:
+  en: "Install into"
+  ru: "Установить в"
+game.env:
+  en: "Environment variables"
+  ru: "Переменные окружения"
+game.env_hint:
+  en: "One KEY=value per line. They override the launcher's own variables."
+  ru: "По одной КЛЮЧ=значение на строку. Они перекрывают переменные лаунчера."
+tools.menu:
+  en: "Tools"
+  ru: "Инструменты"
+tools.winecfg:
+  en: "Wine settings (winecfg)"
+  ru: "Настройки Wine (winecfg)"
+tools.winetricks:
+  en: "Winetricks"
+  ru: "Winetricks"
+tools.regedit:
+  en: "Registry editor"
+  ru: "Редактор реестра"
+tools.taskmgr:
+  en: "Task manager"
+  ru: "Диспетчер задач"
+tools.control:
+  en: "Control panel"
+  ru: "Панель управления"
+tools.explorer:
+  en: "File explorer"
+  ru: "Проводник"
+tools.console:
+  en: "Command prompt"
+  ru: "Командная строка"
+chk.title:
+  en: "Checkup"
+  ru: "Проверка"
+chk.button:
+  en: "Check everything"
+  ru: "Проверить всё"
+chk.hint:
+  en: "Steam, Proton, the runtime, archive tools and the games folder."
+  ru: "Steam, Proton, рантайм, программы для архивов и папка для игр."
+chk.problems_found:
+  en: "The launcher is missing something it needs. Click to see what."
+  ru: "Не хватает чего-то, что нужно лаунчеру. Нажмите, чтобы посмотреть."
+chk.ok:
+  en: "Ready"
+  ru: "Готово"
+chk.warning:
+  en: "Worth a look"
+  ru: "Стоит глянуть"
+chk.problem:
+  en: "Problem"
+  ru: "Проблема"
+chk.skipped:
+  en: "Not set up"
+  ru: "Не настроено"
+chk.fix:
+  en: "Install in Steam"
+  ru: "Установить в Steam"
+app.already_running:
+  en: "OnlineFix Launcher is already running."
+  ru: "OnlineFix Launcher уже запущен."
+set.notifications:
+  en: "Notifications"
+  ru: "Уведомления"
+set.notify:
+  en: "Show desktop notifications when the window isn't focused"
+  ru: "Показывать системные уведомления, когда окно не в фокусе"
+note.added:
+  en: "Game added"
+  ru: "Игра добавлена"
+note.error:
+  en: "Something went wrong"
+  ru: "Что-то пошло не так"

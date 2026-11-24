@@ -73,9 +73,23 @@ impl AppPaths {
 		self.data_dir.join("art")
 	}
 
-	/// GE-Proton builds the app downloaded.
+	/// Downloaded helper programs, like winetricks.
+	pub fn data_dir(&self) -> &Path {
+		&self.data_dir
+	}
+
+	/// Proton builds the launcher downloaded.
 	pub fn protons_dir(&self) -> PathBuf {
 		self.data_dir.join("protons")
+	}
+
+	/// Held locked while the launcher runs, so a second copy can tell.
+	pub fn lock_file(&self) -> PathBuf {
+		std::env::var_os("XDG_RUNTIME_DIR")
+			.map(PathBuf::from)
+			.filter(|dir| dir.is_dir())
+			.unwrap_or_else(|| self.cache_dir.clone())
+			.join(format!("{APP_ID}.lock"))
 	}
 
 	pub fn cache_dir(&self) -> &Path {

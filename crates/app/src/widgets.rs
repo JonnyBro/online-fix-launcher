@@ -3,7 +3,8 @@
 use rust_i18n::t;
 use std::path::Path;
 
-use gpui_kit::component::{ActiveTheme, v_flex};
+use gpui_kit::component::tag::Tag;
+use gpui_kit::component::{ActiveTheme, Sizable, v_flex};
 use gpui_kit::prelude::*;
 use gpui_kit::*;
 
@@ -51,4 +52,11 @@ pub fn format_play_time(seconds: u64) -> String {
 	} else {
 		t!("time.hours", h = minutes / 60, m = minutes % 60).into_owned()
 	}
+}
+
+/// A tinted tag: solid ones on every row draw too much attention.
+pub fn soft_tag(color: Hsla, text: String) -> Tag {
+	Tag::custom(color.opacity(0.15), color, color.opacity(0.4))
+		.small()
+		.child(text)
 }

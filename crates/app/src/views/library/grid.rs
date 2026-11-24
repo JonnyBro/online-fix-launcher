@@ -31,23 +31,26 @@ impl LibraryView {
 						.justify_center()
 						.gap_2()
 						.px_3()
-						.child(
-							div()
-								.text_sm()
-								.text_color(theme.muted_foreground)
-								.child(t!("lib.unpacking").into_owned()),
-						)
-						.child(
-							Progress::new(("unpack-progress", ix))
-								.value(u.progress * 100.)
-								.w_full(),
-						)
-						.child(
-							div()
-								.text_sm()
-								.mono(cx)
-								.child(format!("{:.0}%", u.progress * 100.)),
-						),
+						.child(div().text_sm().text_color(theme.muted_foreground).child(
+							match u.stage {
+								PendingStage::Unpacking(_) => t!("lib.unpacking").into_owned(),
+								PendingStage::Installing => t!("lib.installing").into_owned(),
+							},
+						))
+						.children(match u.stage {
+							PendingStage::Unpacking(p) => vec![
+								Progress::new(("unpack-progress", ix))
+									.value(p * 100.)
+									.w_full()
+									.into_any_element(),
+								div()
+									.text_sm()
+									.mono(cx)
+									.child(format!("{:.0}%", p * 100.))
+									.into_any_element(),
+							],
+							PendingStage::Installing => Vec::new(),
+						}),
 				)
 				.child(div().truncate().child(u.name.clone()))
 				.into_any_element()

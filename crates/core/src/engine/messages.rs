@@ -7,6 +7,7 @@ use crate::library::Game;
 use crate::proton::ProtonBuild;
 use crate::proton_releases::{Provider, Release};
 use crate::settings::Settings;
+use crate::tools::WineTool;
 
 #[derive(Debug)]
 pub enum Command {
@@ -46,6 +47,14 @@ pub enum Command {
 		from: ArtSource,
 	},
 	CheckSteamGridDbKey(String),
+	/// `show` opens the results; otherwise only problems are announced.
+	Checkup {
+		show: bool,
+	},
+	RunTool {
+		id: String,
+		tool: WineTool,
+	},
 }
 
 #[derive(Debug, Clone)]
@@ -83,6 +92,8 @@ pub struct Source {
 	pub name: String,
 	/// The archive's only top folder, which unpacks as the game folder.
 	pub top_dir: Option<PathBuf>,
+	/// Candidates that are FreeTP installers (a `.ftp` file beside them).
+	pub installers: Vec<PathBuf>,
 	/// Not known for archives until they're unpacked.
 	pub fix: Option<FixInfo>,
 }
@@ -95,12 +106,23 @@ pub enum InspectError {
 
 #[derive(Debug, Clone)]
 pub struct NewGame {
+	/// Set when an installer already made the prefix for this id.
+	pub id: Option<String>,
 	pub name: String,
 	/// Absolute, or inside the archive when unpacking.
 	pub exe: PathBuf,
 	/// `None` for the launcher's own folder.
 	pub prefix: Option<PathBuf>,
 	pub unpack: Option<Unpack>,
+	/// `exe` is a FreeTP installer that puts the game here; the add dialog
+	/// opens again on this folder afterwards.
+	pub install_into: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PendingStage {
+	Unpacking(f32),
+	Installing,
 }
 
 #[derive(Debug, Clone)]
@@ -152,20 +174,31 @@ pub enum Event {
 		request: u64,
 		result: Result<Box<Source>, InspectError>,
 	},
-	/// An archive being unpacked for a game that isn't in the list yet.
-	Unpacking {
+	/// A game that isn't in the list yet, being unpacked or installed.
+	Pending {
 		id: String,
 		name: String,
-		progress: f32,
+		stage: PendingStage,
 	},
-	UnpackEnded(String),
+	PendingEnded(String),
+	/// A FreeTP installer finished; the game is to be added from `folder`.
+	Installed {
+		id: String,
+		name: String,
+		folder: PathBuf,
+		prefix: Option<PathBuf>,
+	},
 	ArtChanged(String),
 	ArtChoices {
 		request: u64,
 		result: Result<Vec<ArtOption>, String>,
 	},
 	SteamGridDbKey(Result<(), String>),
-	/// A short success message for the status area.
+	Checkup {
+		checks: Vec<crate::checkup::Check>,
+		show: bool,
+	},
+	/// A short success message, shown as a toast.
 	Notice(String),
 	Error(String),
 }

@@ -80,7 +80,7 @@ pub fn find_tool(archive: &Path) -> Option<(Tool, PathBuf)> {
 		})
 }
 
-fn which(name: &str) -> Option<PathBuf> {
+pub(crate) fn which(name: &str) -> Option<PathBuf> {
 	std::env::var_os("PATH").and_then(|path| {
 		std::env::split_paths(&path)
 			.map(|dir| dir.join(name))

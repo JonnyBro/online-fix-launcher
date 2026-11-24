@@ -93,7 +93,6 @@ impl Game {
 			.unwrap_or_else(|| paths.default_prefixes_dir().join(&self.id))
 	}
 
-	/// The folder the game runs in.
 	pub fn work_dir(&self) -> &Path {
 		self.exe.parent().unwrap_or(Path::new("/"))
 	}
@@ -139,6 +138,33 @@ impl Library {
 		let at = self.games.iter().position(|g| g.id == id)?;
 		Some(self.games.remove(at))
 	}
+}
+
+/// The environment as `KEY=value` lines, for editing as text.
+pub fn env_to_text(env: &BTreeMap<String, String>) -> String {
+	env.iter()
+		.map(|(k, v)| format!("{k}={v}"))
+		.collect::<Vec<_>>()
+		.join("\n")
+}
+
+/// Reads `KEY=value` lines back; blank lines, `#` comments and lines
+/// without a valid name are skipped.
+pub fn env_from_text(text: &str) -> BTreeMap<String, String> {
+	text.lines()
+		.filter_map(|line| {
+			let line = line.trim();
+			if line.starts_with('#') {
+				return None;
+			}
+			let (key, value) = line.split_once('=')?;
+			let key = key.trim();
+			let valid = !key.is_empty()
+				&& !key.starts_with(|c: char| c.is_ascii_digit())
+				&& key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+			valid.then(|| (key.to_owned(), value.trim().to_owned()))
+		})
+		.collect()
 }
 
 pub(crate) fn now() -> u64 {
@@ -193,6 +219,15 @@ mod tests {
 			paths.default_prefixes_dir().join(&game.id)
 		);
 		assert_eq!(game.work_dir(), Path::new("/games/test"));
+	}
+
+	#[test]
+	fn env_text_roundtrip() {
+		let env = env_from_text("DXVK_HUD = fps\n# note\n\nbad line\n1X=2\nPROTON_LOG=1\nA-B=c\n");
+		assert_eq!(env.len(), 2);
+		assert_eq!(env["DXVK_HUD"], "fps");
+		assert_eq!(env_to_text(&env), "DXVK_HUD=fps\nPROTON_LOG=1");
+		assert_eq!(env_from_text(&env_to_text(&env)), env);
 	}
 
 	#[test]

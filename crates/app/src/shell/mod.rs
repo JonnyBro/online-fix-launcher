@@ -22,10 +22,10 @@ use gpui_kit::component::{
 use gpui_kit::prelude::*;
 use gpui_kit::*;
 use onlinefix_launcher_core::app_update::AppRelease;
-use onlinefix_launcher_core::{AppPaths, Command, Engine, Event, Settings};
+use onlinefix_launcher_core::{AppPaths, Command, Engine, Event, PendingStage, Settings};
 use serde::{Deserialize, Serialize};
 
-use crate::dialogs::add_game::AddGameDialog;
+use crate::dialogs::add_game::{AddGameDialog, Preset};
 use crate::dialogs::art_gallery::ArtGallery;
 use crate::icons::AppIcon;
 use crate::logbuf::highlight::{LevelColors, LogHighlighter, SharedColors};
@@ -179,7 +179,7 @@ impl Shell {
 			&library,
 			window,
 			|this, _, event: &LibraryEvent, window, cx| match event {
-				LibraryEvent::Add(path) => this.open_add(path.clone(), window, cx),
+				LibraryEvent::Add(path) => this.open_add(path.clone(), None, window, cx),
 				LibraryEvent::PickArt { id, kind } => {
 					let request = this.request_id();
 					let gallery = ArtGallery::open(
@@ -265,12 +265,19 @@ impl Shell {
 		self.next_request
 	}
 
-	fn open_add(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+	fn open_add(
+		&mut self,
+		path: PathBuf,
+		preset: Option<Preset>,
+		window: &mut Window,
+		cx: &mut Context<Self>,
+	) {
 		let request = self.request_id();
 		let dialog = AddGameDialog::open(
 			self.engine.clone(),
 			path,
 			self.settings.games_dir(),
+			preset,
 			request,
 			window,
 			cx,
@@ -282,7 +289,7 @@ impl Shell {
 	/// A dropped folder, archive or exe opens the add dialog; one at a time.
 	fn add_dropped(&mut self, paths: &ExternalPaths, window: &mut Window, cx: &mut Context<Self>) {
 		if let Some(path) = paths.paths().first() {
-			self.open_add(path.clone(), window, cx);
+			self.open_add(path.clone(), None, window, cx);
 		}
 	}
 

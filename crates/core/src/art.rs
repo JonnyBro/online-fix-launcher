@@ -1,6 +1,6 @@
 //! Game pictures: a portrait cover for the grid, a wide hero for the
-//! details, and the exe's own icon as a last resort. They come from
-//! SteamGridDB when the user has a key, else from Steam's CDN.
+//! details, and the exe's own icon as a last resort. They come from Steam's
+//! CDN, and from SteamGridDB for what Steam lacks when the user has a key.
 
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -233,7 +233,6 @@ impl SteamGridDb {
 		Ok(if reply.success { reply.data } else { None })
 	}
 
-	/// Whether the key is accepted.
 	pub async fn check(&self) -> Result<(), String> {
 		self.get::<Vec<SgdbGame>>("/search/autocomplete/portal")
 			.await

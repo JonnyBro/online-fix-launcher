@@ -14,6 +14,14 @@ use gpui_kit::*;
 use onlinefix_launcher_core::fix::Vendor;
 use onlinefix_launcher_core::{Command, Engine, InspectError, NewGame, Source, SourceKind, Unpack};
 
+/// What an installer run already settled for the game.
+#[derive(Clone)]
+pub struct Preset {
+	pub id: String,
+	pub name: String,
+	pub prefix: Option<PathBuf>,
+}
+
 use crate::theme::Mono;
 
 enum Stage {
@@ -37,6 +45,7 @@ pub struct AddGameDialog {
 	prefix: Entity<InputState>,
 	password: Entity<InputState>,
 	delete_archive: bool,
+	preset: Option<Preset>,
 	_subscriptions: Vec<Subscription>,
 }
 
@@ -45,6 +54,7 @@ impl AddGameDialog {
 		engine: Rc<Engine>,
 		path: PathBuf,
 		games_dir: PathBuf,
+		preset: Option<Preset>,
 		request: u64,
 		window: &mut Window,
 		cx: &mut App,
@@ -95,6 +105,7 @@ impl AddGameDialog {
 				prefix,
 				password,
 				delete_archive: false,
+				preset,
 				_subscriptions: subscriptions,
 			}
 		});
@@ -121,8 +132,16 @@ impl AddGameDialog {
 		self.stage = match result {
 			Ok(source) => {
 				self.exe = source.pick.clone();
-				let name = source.name.clone();
+				let name = match &self.preset {
+					Some(preset) => preset.name.clone(),
+					None => source.name.clone(),
+				};
 				self.name.update(cx, |i, cx| i.set_value(name, window, cx));
+				if let Some(prefix) = self.preset.as_ref().and_then(|p| p.prefix.clone()) {
+					let text = prefix.display().to_string();
+					self.prefix
+						.update(cx, |i, cx| i.set_value(text, window, cx));
+				}
 				Stage::Ready(source)
 			}
 			Err(InspectError::NeedPassword) => {
@@ -169,6 +188,23 @@ impl AddGameDialog {
 		.detach();
 	}
 
+	fn installing(&self, source: &Source) -> bool {
+		self.exe
+			.as_ref()
+			.is_some_and(|exe| source.installers.contains(exe))
+	}
+
+	/// A folder named after the game inside the chosen one.
+	fn named_folder(&self, source: &Source, cx: &App) -> PathBuf {
+		let base = PathBuf::from(self.into.read(cx).value().trim());
+		let folder = sanitize(self.name.read(cx).value().trim());
+		base.join(if folder.is_empty() {
+			source.name.clone()
+		} else {
+			folder
+		})
+	}
+
 	/// The game's folder once unpacked: the archive's own top folder, or
 	/// one named after the game.
 	fn unpack_target(&self, source: &Source, cx: &App) -> (PathBuf, PathBuf) {
@@ -176,12 +212,7 @@ impl AddGameDialog {
 		match &source.top_dir {
 			Some(top) => (base.clone(), base.join(top)),
 			None => {
-				let folder = sanitize(self.name.read(cx).value().trim());
-				let into = base.join(if folder.is_empty() {
-					source.name.clone()
-				} else {
-					folder
-				});
+				let into = self.named_folder(source, cx);
 				(into.clone(), into)
 			}
 		}
@@ -206,11 +237,16 @@ impl AddGameDialog {
 				delete_archive: self.delete_archive,
 			}
 		});
+		let install_into = self
+			.installing(source)
+			.then(|| self.named_folder(source, cx));
 		self.engine.send(Command::AddGame(NewGame {
+			id: self.preset.as_ref().map(|p| p.id.clone()),
 			name,
 			exe,
 			prefix: (!prefix.is_empty()).then(|| PathBuf::from(prefix)),
 			unpack,
+			install_into,
 		}));
 		window.close_dialog(cx);
 	}
@@ -219,8 +255,8 @@ impl AddGameDialog {
 		let Stage::Ready(source) = &self.stage else {
 			return false;
 		};
-		let unpack_ok = source.kind != SourceKind::Archive
-			|| Path::new(self.into.read(cx).value().trim()).is_absolute();
+		let needs_folder = source.kind == SourceKind::Archive || self.installing(source);
+		let unpack_ok = !needs_folder || Path::new(self.into.read(cx).value().trim()).is_absolute();
 		self.exe.is_some() && !self.name.read(cx).value().trim().is_empty() && unpack_ok
 	}
 
@@ -276,7 +312,9 @@ impl AddGameDialog {
 				.text_color(theme.muted_foreground)
 				.child(text)
 		};
+		let installing = self.installing(source);
 		let archive = source.kind == SourceKind::Archive;
+		let needs_folder = archive || installing;
 		let fix_note = match &source.fix {
 			Some(fix) if fix.is_empty() => Some((t!("add.no_fix").into_owned(), theme.warning)),
 			Some(fix) => {
@@ -294,7 +332,11 @@ impl AddGameDialog {
 		};
 		let into_input = self.into.clone();
 		let prefix_input = self.prefix.clone();
-		let target = archive.then(|| self.unpack_target(source, cx).1);
+		let target = if installing {
+			Some(self.named_folder(source, cx))
+		} else {
+			archive.then(|| self.unpack_target(source, cx).1)
+		};
 		v_flex()
 			.gap_3()
 			.child(
@@ -326,11 +368,23 @@ impl AddGameDialog {
 					.child(label(t!("game.name").into_owned()))
 					.child(Input::new(&self.name).small()),
 			)
-			.when(archive, |form| {
+			.when(installing, |form| {
+				form.child(
+					div()
+						.text_sm()
+						.text_color(theme.warning)
+						.child(t!("add.freetp_installer").into_owned()),
+				)
+			})
+			.when(needs_folder, |form| {
 				form.child(
 					v_flex()
 						.gap_1()
-						.child(label(t!("add.unpack_into").into_owned()))
+						.child(label(if installing {
+							t!("add.install_into").into_owned()
+						} else {
+							t!("add.unpack_into").into_owned()
+						}))
 						.child(
 							h_flex()
 								.gap_2()
@@ -353,15 +407,17 @@ impl AddGameDialog {
 								.truncate()
 								.child(t!("add.game_folder", path = t.display()).into_owned())
 						}))
-						.child(
-							Checkbox::new("delete-archive")
-								.label(t!("add.delete_archive").into_owned())
-								.checked(self.delete_archive)
-								.on_click(cx.listener(|this, checked: &bool, _, cx| {
-									this.delete_archive = *checked;
-									cx.notify();
-								})),
-						),
+						.when(archive, |col| {
+							col.child(
+								Checkbox::new("delete-archive")
+									.label(t!("add.delete_archive").into_owned())
+									.checked(self.delete_archive)
+									.on_click(cx.listener(|this, checked: &bool, _, cx| {
+										this.delete_archive = *checked;
+										cx.notify();
+									})),
+							)
+						}),
 				)
 			})
 			.child(

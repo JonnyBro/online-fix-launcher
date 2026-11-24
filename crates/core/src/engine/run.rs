@@ -33,6 +33,7 @@ pub(super) async fn run(
 	state.emit_library();
 	state.refresh_protons();
 	state.fetch_missing_art();
+	state.checkup(false);
 
 	loop {
 		let command = tokio::select! {
@@ -44,8 +45,8 @@ pub(super) async fn run(
 				state.finished(finished);
 				continue;
 			}
-			Some((new, result)) = unpacked_rx.recv() => {
-				state.unpacked(new, result);
+			Some(step) = unpacked_rx.recv() => {
+				state.add_step(step);
 				continue;
 			}
 			Some(()) = protons_rx.recv() => {
@@ -87,12 +88,23 @@ pub(super) async fn run(
 			Command::ArtChoices { request, id, kind } => state.art_choices(request, &id, kind),
 			Command::SetArt { id, kind, from } => state.set_art(id, kind, from),
 			Command::CheckSteamGridDbKey(key) => state.check_sgdb_key(key),
+			Command::RunTool { id, tool } => state.run_tool(&id, tool),
+			Command::Checkup { show } => state.checkup(show),
 		}
 	}
 	tracing::info!("engine stopped");
 }
 
 impl State {
+	fn checkup(&self, show: bool) {
+		let (paths, settings, sink) =
+			(self.paths.clone(), self.settings.clone(), self.sink.clone());
+		tokio::task::spawn_blocking(move || {
+			let checks = crate::checkup::run(&paths, &settings);
+			sink.emit(Event::Checkup { checks, show });
+		});
+	}
+
 	async fn save_settings(&mut self, settings: Settings) {
 		let paths = self.paths.clone();
 		let to_save = settings.clone();

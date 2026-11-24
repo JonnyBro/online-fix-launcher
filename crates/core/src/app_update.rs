@@ -9,7 +9,6 @@ const LATEST_RELEASE_API: &str =
 pub struct AppRelease {
 	/// Without the leading `v`, like `2.1.0`.
 	pub version: String,
-	/// The release page.
 	pub url: String,
 }
 

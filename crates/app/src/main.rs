@@ -3,6 +3,7 @@ rust_i18n::i18n!("locales", fallback = "en");
 mod dialogs;
 mod icons;
 mod logbuf;
+mod notify;
 mod shell;
 mod theme;
 mod ui_state;
@@ -35,6 +36,18 @@ fn main() {
 		}
 	};
 	apply_language(settings.language);
+	// Two copies would write the same game list and fight over prefixes.
+	let _instance = match single_instance(&paths) {
+		Some(lock) => lock,
+		None => {
+			rfd::MessageDialog::new()
+				.set_level(rfd::MessageLevel::Info)
+				.set_title(APP_NAME)
+				.set_description(rust_i18n::t!("app.already_running").into_owned())
+				.show();
+			return;
+		}
+	};
 
 	gpui_kit::application()
 		.with_assets(icons::AppAssets)
@@ -76,6 +89,32 @@ fn main() {
 			cx.on_window_closed(|cx, _| cx.quit()).detach();
 			cx.activate(true);
 		});
+}
+
+/// The lock on the instance file, or `None` when another copy holds it.
+/// A lock that can't be taken for another reason doesn't stop the launcher.
+fn single_instance(paths: &AppPaths) -> Option<Option<std::fs::File>> {
+	let path = paths.lock_file();
+	let file = match std::fs::OpenOptions::new()
+		.create(true)
+		.truncate(false)
+		.write(true)
+		.open(&path)
+	{
+		Ok(file) => file,
+		Err(e) => {
+			eprintln!("instance lock {}: {e}", path.display());
+			return Some(None);
+		}
+	};
+	match file.try_lock() {
+		Ok(()) => Some(Some(file)),
+		Err(std::fs::TryLockError::WouldBlock) => None,
+		Err(std::fs::TryLockError::Error(e)) => {
+			eprintln!("instance lock {}: {e}", path.display());
+			Some(None)
+		}
+	}
 }
 
 fn apply_language(language: Language) {

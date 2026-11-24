@@ -9,6 +9,7 @@ publish = false
 [dependencies]
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
 gpui-kit = "0.10.0"
+notify-rust = "4.19.0"
 onlinefix-launcher-core = { path = "../core" }
 rfd = "0.18.0"
 rust-i18n = "4.2.4"
