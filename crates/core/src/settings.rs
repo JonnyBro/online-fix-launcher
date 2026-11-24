@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +36,11 @@ pub struct Settings {
 	pub language: Language,
 	/// Look for a newer release of the app on GitHub at start.
 	pub check_app_updates: bool,
+	/// The Proton build for games that don't pick one; `None` means the newest.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub default_proton: Option<PathBuf>,
+	/// Start Steam before a game when it isn't running; fixes talk to it.
+	pub start_steam: bool,
 }
 
 impl Default for Settings {
@@ -46,6 +51,8 @@ impl Default for Settings {
 			light_scheme: String::new(),
 			language: Language::default(),
 			check_app_updates: true,
+			default_proton: None,
+			start_steam: true,
 		}
 	}
 }
@@ -71,11 +78,11 @@ impl Settings {
 	}
 }
 
-fn write_atomically(path: &Path, bytes: &[u8]) -> Result<()> {
+pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<()> {
 	if let Some(parent) = path.parent() {
 		std::fs::create_dir_all(parent).at(parent)?;
 	}
-	let tmp = path.with_extension("toml.tmp");
+	let tmp = path.with_extension("tmp");
 	// API keys will live here.
 	write_private(&tmp, bytes).at(&tmp)?;
 	std::fs::rename(&tmp, path).at(path)
@@ -114,6 +121,8 @@ mod tests {
 			light_scheme: String::new(),
 			language: Language::Russian,
 			check_app_updates: false,
+			default_proton: Some("/p/GE-Proton10-1".into()),
+			start_steam: false,
 		};
 		settings.save(&paths).unwrap();
 		assert_eq!(Settings::load(&paths).unwrap(), settings);

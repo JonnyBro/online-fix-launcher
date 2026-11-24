@@ -45,6 +45,10 @@ impl AppPaths {
 		self.config_dir.join("settings.toml")
 	}
 
+	pub fn games_file(&self) -> PathBuf {
+		self.config_dir.join("games.toml")
+	}
+
 	/// Window size and view choices kept by the GUI between runs.
 	pub fn ui_state_file(&self) -> PathBuf {
 		self.config_dir.join("ui.json")

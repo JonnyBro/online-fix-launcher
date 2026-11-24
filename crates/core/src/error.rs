@@ -19,6 +19,13 @@ pub enum Error {
 		source: toml::de::Error,
 	},
 
+	#[error("{}", rust_i18n::t!("err.library_parse", path = .path.display(), source = .source))]
+	LibraryParse {
+		path: PathBuf,
+		#[source]
+		source: toml::de::Error,
+	},
+
 	#[error("{}", rust_i18n::t!("err.settings_serialize", error = .0))]
 	SettingsSerialize(#[from] toml::ser::Error),
 

@@ -14,3 +14,15 @@ err.settings_serialize:
 err.runtime:
   en: "could not start the background runtime: %{error}"
   ru: "не удалось запустить фоновую среду: %{error}"
+err.library_parse:
+  en: "could not read the game list from %{path}: %{source}"
+  ru: "не удалось прочитать список игр из %{path}: %{source}"
+err.exe_missing:
+  en: "the game file is gone: %{path}"
+  ru: "файл игры не найден: %{path}"
+err.proton_missing:
+  en: "no Proton build to run the game with"
+  ru: "нет сборки Proton, чтобы запустить игру"
+err.bad_args:
+  en: "can't read the arguments: %{args}"
+  ru: "не удалось разобрать аргументы: %{args}"
