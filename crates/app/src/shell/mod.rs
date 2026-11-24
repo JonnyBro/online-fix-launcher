@@ -26,6 +26,7 @@ use onlinefix_launcher_core::{AppPaths, Command, Engine, Event, PendingStage, Se
 use serde::{Deserialize, Serialize};
 
 use crate::dialogs::add_game::{AddGameDialog, Preset};
+use crate::dialogs::app_update::{UpdateDialog, UpdateEvent};
 use crate::dialogs::art_gallery::ArtGallery;
 use crate::icons::AppIcon;
 use crate::logbuf::highlight::{LevelColors, LogHighlighter, SharedColors};
@@ -87,6 +88,8 @@ pub struct Shell {
 	log_colors: SharedColors,
 	settings: Settings,
 	add_dialog: Option<WeakEntity<AddGameDialog>>,
+	update_dialog: Option<WeakEntity<UpdateDialog>>,
+	_update_events: Option<Subscription>,
 	gallery: Option<WeakEntity<ArtGallery>>,
 	/// Ties engine answers to the dialog that asked.
 	next_request: u64,
@@ -233,6 +236,8 @@ impl Shell {
 			log_colors,
 			settings,
 			add_dialog: None,
+			update_dialog: None,
+			_update_events: None,
 			gallery: None,
 			next_request: 0,
 			_tasks: vec![events, log_poll],
@@ -258,6 +263,46 @@ impl Shell {
 			let _ = shell.update(cx, |this, cx| this.open_logs(window, cx));
 		});
 		window.push_notification(note, cx);
+	}
+
+	pub(super) fn open_update(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+		let Some(release) = self.app_update.clone() else {
+			return;
+		};
+		let dialog = UpdateDialog::open(
+			self.engine.clone(),
+			release,
+			self.settings.clone(),
+			window,
+			cx,
+		);
+		self._update_events = Some(cx.subscribe_in(
+			&dialog,
+			window,
+			|this, _, event: &UpdateEvent, window, cx| match event {
+				UpdateEvent::Restart => this.restart(window, cx),
+			},
+		));
+		self.update_dialog = Some(dialog.downgrade());
+	}
+
+	/// Starts the updated binary and quits; the new copy waits for this one's
+	/// instance lock to go.
+	fn restart(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+		self.save_ui(window.window_bounds(), cx);
+		let started = std::env::current_exe().and_then(|exe| {
+			std::process::Command::new(exe)
+				.arg(crate::AFTER_UPDATE)
+				.spawn()
+		});
+		match started {
+			Ok(_) => cx.quit(),
+			Err(e) => self.notify(
+				Notification::error(t!("upd.restart_failed", error = e).into_owned()),
+				window,
+				cx,
+			),
+		}
 	}
 
 	fn request_id(&mut self) -> u64 {

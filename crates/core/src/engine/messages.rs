@@ -13,6 +13,7 @@ use crate::tools::WineTool;
 pub enum Command {
 	SaveSettings(Settings),
 	CheckAppUpdate,
+	InstallAppUpdate(crate::app_update::Download),
 	/// Looks into a folder, archive or exe the user wants to add.
 	InspectSource {
 		request: u64,
@@ -150,6 +151,9 @@ pub enum Event {
 	SettingsSaved(Settings),
 	SettingsSaveFailed(String),
 	AppUpdate(AppRelease),
+	AppUpdateProgress(f32),
+	/// The new binary is in place; a restart runs it.
+	AppUpdateInstalled(Result<(), String>),
 	/// Every game, after any change.
 	Library(Vec<Game>),
 	GameAdded(String),

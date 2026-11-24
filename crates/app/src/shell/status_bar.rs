@@ -76,14 +76,13 @@ impl Shell {
 			.border_color(theme.status_bar_border)
 			.child(running)
 			.children(self.app_update.as_ref().map(|release| {
-				let url = release.url.clone();
 				Button::new("app-update")
 					.label(t!("upd.available", version = release.version))
 					.ghost()
 					.xsmall()
 					.text_color(theme.success)
 					.tooltip(t!("upd.hint"))
-					.on_click(move |_, _, cx| cx.open_url(&url))
+					.on_click(cx.listener(|this, _, window, cx| this.open_update(window, cx)))
 			}))
 			.child(
 				Button::new("toggle-logs")

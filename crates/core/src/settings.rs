@@ -38,6 +38,9 @@ pub struct Settings {
 	pub notifications: bool,
 	/// Look for a newer release of the app on GitHub at start.
 	pub check_app_updates: bool,
+	/// A release the user chose not to be asked about again.
+	#[serde(skip_serializing_if = "String::is_empty")]
+	pub skipped_version: String,
 	/// The Proton build for games that don't pick one; `None` means the newest.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub default_proton: Option<PathBuf>,
@@ -60,6 +63,7 @@ impl Default for Settings {
 			language: Language::default(),
 			notifications: true,
 			check_app_updates: true,
+			skipped_version: String::new(),
 			default_proton: None,
 			start_steam: true,
 			games_dir: None,
@@ -142,6 +146,7 @@ mod tests {
 			language: Language::Russian,
 			notifications: false,
 			check_app_updates: false,
+			skipped_version: "0.2.0".into(),
 			default_proton: Some("/p/GE-Proton10-1".into()),
 			start_steam: false,
 			games_dir: Some("/mnt/games".into()),

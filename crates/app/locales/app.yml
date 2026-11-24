@@ -99,8 +99,8 @@ upd.available:
   en: "Version %{version} is out"
   ru: "Вышла версия %{version}"
 upd.hint:
-  en: "Open the release page on GitHub"
-  ru: "Открыть страницу релиза на GitHub"
+  en: "See what's new and update"
+  ru: "Посмотреть и обновиться"
 common.cancel:
   en: "Cancel"
   ru: "Отмена"
@@ -527,3 +527,36 @@ note.added:
 note.error:
   en: "Something went wrong"
   ru: "Что-то пошло не так"
+upd.title:
+  en: "Update"
+  ru: "Обновление"
+upd.ask:
+  en: "Version %{version} is out (you have %{current}). Update now?"
+  ru: "Вышла версия %{version} (у вас %{current}). Обновить сейчас?"
+upd.manual:
+  en: "The launcher can't replace itself here (it was installed as a package or the folder is read-only), so the update has to be installed by hand."
+  ru: "Здесь лаунчер не может заменить себя сам (он установлен пакетом или папка только для чтения), так что обновление нужно поставить вручную."
+upd.install:
+  en: "Update"
+  ru: "Обновить"
+upd.later:
+  en: "Later"
+  ru: "Позже"
+upd.skip:
+  en: "Skip this version"
+  ru: "Пропустить эту версию"
+upd.page:
+  en: "Release page"
+  ru: "Страница релиза"
+upd.downloading:
+  en: "Downloading the update…"
+  ru: "Скачиваю обновление…"
+upd.ready:
+  en: "The update is installed. Restart the launcher to use it."
+  ru: "Обновление установлено. Перезапустите лаунчер, чтобы им пользоваться."
+upd.restart:
+  en: "Restart"
+  ru: "Перезапустить"
+upd.restart_failed:
+  en: "Couldn't restart: %{error}. Start the launcher again yourself."
+  ru: "Не удалось перезапустить: %{error}. Запустите лаунчер заново вручную."

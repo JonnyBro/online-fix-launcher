@@ -17,6 +17,8 @@ use onlinefix_launcher_core::{AppPaths, Settings};
 use tracing_subscriber::prelude::*;
 
 pub const APP_NAME: &str = "OnlineFix Launcher";
+/// Passed to the updated copy, which then waits for the old one to quit.
+pub const AFTER_UPDATE: &str = "--after-update";
 
 fn main() {
 	let paths = match AppPaths::detect().and_then(|p| p.ensure_exist().map(|()| p)) {
@@ -37,7 +39,8 @@ fn main() {
 	};
 	apply_language(settings.language);
 	// Two copies would write the same game list and fight over prefixes.
-	let _instance = match single_instance(&paths) {
+	let after_update = std::env::args().any(|a| a == AFTER_UPDATE);
+	let _instance = match single_instance(&paths, after_update) {
 		Some(lock) => lock,
 		None => {
 			rfd::MessageDialog::new()
@@ -93,7 +96,7 @@ fn main() {
 
 /// The lock on the instance file, or `None` when another copy holds it.
 /// A lock that can't be taken for another reason doesn't stop the launcher.
-fn single_instance(paths: &AppPaths) -> Option<Option<std::fs::File>> {
+fn single_instance(paths: &AppPaths, wait: bool) -> Option<Option<std::fs::File>> {
 	let path = paths.lock_file();
 	let file = match std::fs::OpenOptions::new()
 		.create(true)
@@ -107,12 +110,20 @@ fn single_instance(paths: &AppPaths) -> Option<Option<std::fs::File>> {
 			return Some(None);
 		}
 	};
-	match file.try_lock() {
-		Ok(()) => Some(Some(file)),
-		Err(std::fs::TryLockError::WouldBlock) => None,
-		Err(std::fs::TryLockError::Error(e)) => {
-			eprintln!("instance lock {}: {e}", path.display());
-			Some(None)
+	let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+	loop {
+		match file.try_lock() {
+			Ok(()) => return Some(Some(file)),
+			Err(std::fs::TryLockError::WouldBlock)
+				if wait && std::time::Instant::now() < deadline =>
+			{
+				std::thread::sleep(std::time::Duration::from_millis(200));
+			}
+			Err(std::fs::TryLockError::WouldBlock) => return None,
+			Err(std::fs::TryLockError::Error(e)) => {
+				eprintln!("instance lock {}: {e}", path.display());
+				return Some(None);
+			}
 		}
 	}
 }

@@ -1,3 +1,5 @@
+use rust_i18n::t;
+
 use super::*;
 
 pub(super) async fn run(
@@ -72,6 +74,20 @@ pub(super) async fn run(
 				password,
 			} => state.inspect_source(request, path, password),
 			Command::AddGame(new) => state.add_new_game(new),
+			Command::InstallAppUpdate(download) => {
+				let sink = state.sink.clone();
+				tokio::spawn(async move {
+					let result = match crate::app_update::replaceable_binary() {
+						Some(exe) => crate::app_update::install(&download, &exe, |p| {
+							sink.emit(Event::AppUpdateProgress(p))
+						})
+						.await
+						.map_err(|e| t!("err.update", error = e).into_owned()),
+						None => Err(t!("err.update", error = "not replaceable").into_owned()),
+					};
+					sink.emit(Event::AppUpdateInstalled(result));
+				});
+			}
 			Command::UpdateGame(game) => state.update_game(*game),
 			Command::RemoveGame {
 				id,

@@ -31,7 +31,23 @@ impl Shell {
 				window.refresh();
 			}
 			Event::SettingsSaveFailed(text) => self.notify(Notification::error(text), window, cx),
-			Event::AppUpdate(release) => self.app_update = Some(release),
+			Event::AppUpdate(release) => {
+				let ask = release.version != self.settings.skipped_version;
+				self.app_update = Some(release);
+				if ask {
+					self.open_update(window, cx);
+				}
+			}
+			Event::AppUpdateProgress(p) => {
+				if let Some(dialog) = self.update_dialog.as_ref().and_then(|d| d.upgrade()) {
+					dialog.update(cx, |d, cx| d.progress(p, cx));
+				}
+			}
+			Event::AppUpdateInstalled(result) => {
+				if let Some(dialog) = self.update_dialog.as_ref().and_then(|d| d.upgrade()) {
+					dialog.update(cx, |d, cx| d.installed(result, cx));
+				}
+			}
 			Event::Library(games) => self
 				.library
 				.update(cx, |l, cx| l.set_games(games, window, cx)),

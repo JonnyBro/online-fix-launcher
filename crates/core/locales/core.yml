@@ -188,3 +188,15 @@ chk.sgdb_none:
 chk.sgdb_none_detail:
   en: "Covers come from Steam. The key only matters for games Steam has no pictures for."
   ru: "Обложки берутся из Steam. Ключ нужен только для игр, у которых в Steam нет картинок."
+err.update_no_sum:
+  en: "the release has no checksum for its download"
+  ru: "у релиза нет контрольной суммы для архива"
+err.update_checksum:
+  en: "the downloaded update is damaged (checksum mismatch)"
+  ru: "скачанное обновление повреждено (не сходится контрольная сумма)"
+err.update_no_binary:
+  en: "the release archive has no launcher in it"
+  ru: "в архиве релиза нет лаунчера"
+err.update:
+  en: "could not update: %{error}"
+  ru: "не удалось обновиться: %{error}"
