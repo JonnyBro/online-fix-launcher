@@ -81,6 +81,48 @@ impl LibraryView {
 			},
 		));
 
+		let art_menu = {
+			let view = cx.entity().downgrade();
+			let id = game.id.clone();
+			Button::new("art-menu")
+				.label(t!("art.menu"))
+				.icon(Icon::new(IconName::Palette))
+				.small()
+				.outline()
+				.dropdown_menu(move |menu, _, _| {
+					let pick = |label: String, kind: ArtKind| {
+						let (view, id) = (view.clone(), id.clone());
+						PopupMenuItem::new(label).on_click(move |_, _, cx| {
+							let id = id.clone();
+							let _ = view
+								.update(cx, |_, cx| cx.emit(LibraryEvent::PickArt { id, kind }));
+						})
+					};
+					let from_file = |label: String, kind: ArtKind| {
+						let (view, id) = (view.clone(), id.clone());
+						PopupMenuItem::new(label).on_click(move |_, window, cx| {
+							let id = id.clone();
+							let _ = view
+								.update(cx, |this, cx| this.art_from_file(id, kind, window, cx));
+						})
+					};
+					let engine_view = view.clone();
+					let refetch_id = id.clone();
+					menu.item(from_file(t!("art.cover_file").into_owned(), ArtKind::Grid))
+						.item(from_file(t!("art.banner_file").into_owned(), ArtKind::Hero))
+						.separator()
+						.item(pick(t!("art.pick_cover").into_owned(), ArtKind::Grid))
+						.item(pick(t!("art.pick_banner").into_owned(), ArtKind::Hero))
+						.separator()
+						.item(
+							PopupMenuItem::new(t!("art.refetch")).on_click(move |_, _, cx| {
+								let id = refetch_id.clone();
+								let _ = engine_view
+									.update(cx, |this, _| this.engine.send(Command::FetchArt(id)));
+							}),
+						)
+				})
+		};
 		let folders = {
 			let game_dir = game.work_dir().to_path_buf();
 			let prefix = game.prefix_dir(&self.paths);
@@ -88,6 +130,7 @@ impl LibraryView {
 			h_flex()
 				.gap_2()
 				.flex_wrap()
+				.child(art_menu)
 				.child(
 					Button::new("open-game-dir")
 						.label(t!("game.open_folder"))
@@ -150,7 +193,17 @@ impl LibraryView {
 							v_flex()
 								.p_4()
 								.gap_4()
-								.child(placeholder_cover(&saved, (cover_w, cover_w * 0.47), &theme))
+								.child({
+									let art = self.art.get(&saved.id).cloned().unwrap_or_default();
+									let picture = art.hero.as_ref().or(art.grid.as_ref());
+									cover(
+										&saved,
+										picture,
+										art.icon.as_ref(),
+										(cover_w, cover_w * 0.47),
+										&theme,
+									)
+								})
 								.child(h_flex().gap_2().child(play).children(run.map(|state| {
 									div()
 										.text_sm()
@@ -289,6 +342,12 @@ impl LibraryView {
 			.child(
 				v_flex()
 					.gap_1()
+					.child(label(t!("game.prefix").into()))
+					.child(Input::new(&self.fields.prefix).small()),
+			)
+			.child(
+				v_flex()
+					.gap_1()
 					.child(label(t!("game.extra_overrides").into()))
 					.child(Input::new(&self.fields.overrides).small()),
 			)
@@ -320,6 +379,34 @@ impl LibraryView {
 						|g, v| g.wined3d = v,
 					)),
 			)
+	}
+
+	fn art_from_file(
+		&self,
+		id: String,
+		kind: ArtKind,
+		window: &mut Window,
+		cx: &mut Context<Self>,
+	) {
+		let picked = cx.prompt_for_paths(PathPromptOptions {
+			files: true,
+			directories: false,
+			multiple: false,
+			prompt: Some(t!("art.pick_file").into()),
+		});
+		let engine = self.engine.clone();
+		cx.spawn_in(window, async move |_, _| {
+			if let Ok(Ok(Some(paths))) = picked.await
+				&& let Some(file) = paths.into_iter().next()
+			{
+				engine.send(Command::SetArt {
+					id,
+					kind,
+					from: onlinefix_launcher_core::ArtSource::File(file),
+				});
+			}
+		})
+		.detach();
 	}
 
 	fn save_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {

@@ -53,3 +53,45 @@ err.not_deleting:
 err.delete_failed:
   en: "could not delete %{path}: %{error}"
   ru: "не удалось удалить %{path}: %{error}"
+err.no_archiver:
+  en: "unpacking needs 7z (the 7zip package) or, for RAR, unrar"
+  ru: "для распаковки нужен 7z (пакет 7zip) или, для RAR, unrar"
+err.archive_password:
+  en: "wrong archive password"
+  ru: "неверный пароль архива"
+err.archive:
+  en: "archive error: %{error}"
+  ru: "ошибка архива: %{error}"
+err.sgdb_key:
+  en: "SteamGridDB didn't accept the API key"
+  ru: "SteamGridDB не принял API-ключ"
+err.unpack:
+  en: "could not unpack %{name}: %{error}"
+  ru: "не удалось распаковать %{name}: %{error}"
+err.folder_not_empty:
+  en: "%{path} already exists and isn't empty"
+  ru: "%{path} уже существует и не пуста"
+err.not_a_source:
+  en: "pick a game folder, an archive or an .exe"
+  ru: "выберите папку игры, архив или .exe"
+err.sgdb_no_key:
+  en: "add a SteamGridDB API key in the settings first"
+  ru: "сначала укажите API-ключ SteamGridDB в настройках"
+err.not_a_picture:
+  en: "that link isn't a picture"
+  ru: "по ссылке не картинка"
+err.proton_checksum:
+  en: "the download is damaged (checksum mismatch); try again"
+  ru: "скачанный файл повреждён (не сходится контрольная сумма); попробуйте снова"
+err.proton_layout:
+  en: "the archive isn't laid out like a Proton build"
+  ru: "архив устроен не как сборка Proton"
+proton.installed:
+  en: "%{name} installed"
+  ru: "%{name} установлен"
+err.proton_install:
+  en: "could not install %{name}: %{error}"
+  ru: "не удалось установить %{name}: %{error}"
+err.proton_not_ours:
+  en: "only builds the launcher downloaded can be removed here"
+  ru: "удалять здесь можно только сборки, скачанные лаунчером"

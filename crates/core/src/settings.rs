@@ -41,6 +41,12 @@ pub struct Settings {
 	pub default_proton: Option<PathBuf>,
 	/// Start Steam before a game when it isn't running; fixes talk to it.
 	pub start_steam: bool,
+	/// Where archives unpack; empty means `~/Games`.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub games_dir: Option<PathBuf>,
+	/// For covers from SteamGridDB; empty means Steam's own pictures.
+	#[serde(skip_serializing_if = "String::is_empty")]
+	pub steamgriddb_key: String,
 }
 
 impl Default for Settings {
@@ -53,11 +59,22 @@ impl Default for Settings {
 			check_app_updates: true,
 			default_proton: None,
 			start_steam: true,
+			games_dir: None,
+			steamgriddb_key: String::new(),
 		}
 	}
 }
 
 impl Settings {
+	pub fn games_dir(&self) -> PathBuf {
+		self.games_dir.clone().unwrap_or_else(|| {
+			std::env::var_os("HOME")
+				.map(PathBuf::from)
+				.unwrap_or_default()
+				.join("Games")
+		})
+	}
+
 	/// A missing file yields defaults; a broken one is an error so the user's
 	/// settings are never silently replaced.
 	pub fn load(paths: &AppPaths) -> Result<Self> {
@@ -123,6 +140,8 @@ mod tests {
 			check_app_updates: false,
 			default_proton: Some("/p/GE-Proton10-1".into()),
 			start_steam: false,
+			games_dir: Some("/mnt/games".into()),
+			steamgriddb_key: "secret".into(),
 		};
 		settings.save(&paths).unwrap();
 		assert_eq!(Settings::load(&paths).unwrap(), settings);

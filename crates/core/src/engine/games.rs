@@ -11,7 +11,7 @@ use super::*;
 use crate::launch::{self, Stream};
 use crate::library::Game;
 use crate::proton::ProtonBuild;
-use crate::{detect, fix, proton, steam};
+use crate::{fix, proton, steam};
 
 /// Signing in can take a while on a slow connection.
 const STEAM_TIMEOUT: Duration = Duration::from_secs(420);
@@ -41,7 +41,7 @@ impl State {
 		self.sink.emit(Event::Library(self.library.games.clone()));
 	}
 
-	fn save_library(&mut self) -> bool {
+	pub(super) fn save_library(&mut self) -> bool {
 		if self.library_broken {
 			self.sink
 				.emit(Event::Error(t!("err.library_read_only").into_owned()));
@@ -66,29 +66,20 @@ impl State {
 	}
 
 	pub(super) fn refresh_protons(&self) {
-		self.sink.emit(Event::Protons(self.protons()));
-	}
-
-	pub(super) fn add_game(&mut self, exe: PathBuf) {
-		let info = fix::scan(&fix::game_root(&exe));
-		let mut game = Game::new(detect::game_name(&exe), exe);
-		game.fix_overrides = info.overrides_string();
-		game.real_app_id = info.real_app_id;
-		game.fake_app_id = info.fake_app_id;
-		tracing::info!(
-			"adding {}: {:?} fix, overrides {:?}",
-			game.name,
-			info.vendor,
-			game.fix_overrides
-		);
-		let id = game.id.clone();
-		self.library.upsert(game);
-		if self.save_library() {
-			self.emit_library();
-			self.sink.emit(Event::GameAdded(id));
-		} else {
-			self.library.remove(&id);
-		}
+		let builds = self.protons();
+		let libraries = steam::root()
+			.as_deref()
+			.map(steam::library_folders)
+			.unwrap_or_default();
+		let mut missing: Vec<u32> = builds
+			.iter()
+			.filter_map(|b| b.runtime_app_id)
+			.filter(|id| steam::runtime(&libraries, *id).is_none())
+			.collect();
+		missing.sort_unstable();
+		missing.dedup();
+		self.sink.emit(Event::Protons(builds));
+		self.sink.emit(Event::MissingRuntimes(missing));
 	}
 
 	pub(super) fn update_game(&mut self, game: Game) {
@@ -116,6 +107,7 @@ impl State {
 			return;
 		}
 		let _ = std::fs::remove_file(self.paths.game_log(id));
+		self.art.remove_all(id);
 		self.emit_library();
 
 		let mut doomed = Vec::new();

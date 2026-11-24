@@ -4,8 +4,15 @@ Linux launcher for Windows games with OnlineFix and FreeTP multiplayer fixes,
 run through Proton. Written in Rust with [gpui](https://gpui.rs) and
 [GPUI Kit](https://gpui-kit.com). The interface is in English and Russian.
 
-Work in progress: the window, settings and logs are there; the game library,
-fix detection and Proton management are next.
+Work in progress: games can be added from a folder, an archive or an exe,
+get covers from SteamGridDB or Steam, and run through Proton. Proton
+management and FreeTP installers are next.
+
+## Requirements
+
+- Steam, for the Steam Linux Runtime and for fixes that talk to the client.
+- `7z` (the `7zip` package) to add games from archives; `unrar` also works
+  for RAR.
 
 ## Building
 

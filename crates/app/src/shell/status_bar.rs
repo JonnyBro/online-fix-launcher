@@ -114,7 +114,9 @@ impl Shell {
 	}
 
 	fn running_games(&self, cx: &mut Context<Self>) -> impl IntoElement {
-		let running = self.library.read(cx).running();
+		let library = self.library.read(cx);
+		let running = library.running();
+		let unpacking = library.unpacking();
 		let theme = cx.theme();
 		h_flex()
 			.flex_1()
@@ -134,6 +136,12 @@ impl Shell {
 						.child(t!("run.now", names = running.join(", ")).into_owned()),
 				)
 			})
+			.children(unpacking.into_iter().map(|(name, progress)| {
+				let percent = format!("{:.0}", progress * 100.);
+				div()
+					.truncate()
+					.child(t!("lib.unpacking_status", name = name, percent = percent).into_owned())
+			}))
 	}
 
 	pub(super) fn logs_panel(&self, cx: &mut Context<Self>) -> impl IntoElement {

@@ -1,8 +1,11 @@
 //! Background side of the app: the UI sends [`Command`]s, the engine works on a
 //! tokio runtime in its own thread and reports back with [`Event`]s.
 
+mod adding;
+mod art;
 mod games;
 mod messages;
+mod protons;
 mod run;
 
 use std::collections::HashMap;
@@ -18,7 +21,10 @@ use crate::library::Library;
 use crate::paths::AppPaths;
 use crate::settings::Settings;
 
-pub use messages::{Command, Event, RunState};
+pub use messages::{
+	ArtOption, ArtSource, Command, Event, InspectError, NewGame, RunState, Source, SourceKind,
+	Unpack,
+};
 
 /// Called after every event so the UI can wake up and repaint.
 pub type Notifier = Arc<dyn Fn() + Send + Sync>;
@@ -104,6 +110,10 @@ struct State {
 	library_broken: bool,
 	running: HashMap<String, games::Running>,
 	finished: mpsc::UnboundedSender<games::Finished>,
+	unpacked: mpsc::UnboundedSender<(NewGame, std::result::Result<(), String>)>,
+	art: crate::art::ArtStore,
+	/// A build was installed or removed; the list is read again.
+	protons_changed: mpsc::UnboundedSender<()>,
 }
 
 #[cfg(test)]

@@ -18,7 +18,10 @@ pub enum Source {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProtonBuild {
+	/// The folder's name: copies of one release differ only by it.
 	pub name: String,
+	/// What the `version` file says, like `GE-Proton11-14`.
+	pub version: Option<String>,
 	/// The folder with the `proton` script.
 	pub dir: PathBuf,
 	pub source: Source,
@@ -43,18 +46,18 @@ impl ProtonBuild {
 		if !script.is_file() {
 			return None;
 		}
-		let name = std::fs::read_to_string(dir.join("version"))
+		let name = dir.file_name()?.to_string_lossy().into_owned();
+		let version = std::fs::read_to_string(dir.join("version"))
 			.ok()
 			// `1795427215 GE-Proton11-14`: a build time, then the name.
-			.and_then(|v| v.split_whitespace().nth(1).map(str::to_owned))
-			.filter(|_| source != Source::Steam)
-			.or_else(|| dir.file_name().map(|n| n.to_string_lossy().into_owned()))?;
+			.and_then(|v| v.split_whitespace().nth(1).map(str::to_owned));
 		let runtime_app_id = std::fs::read_to_string(dir.join("toolmanifest.vdf"))
 			.ok()
 			.and_then(|text| vdf::parse(&text))
 			.and_then(|m| m.obj("manifest")?.str("require_tool_appid")?.parse().ok());
 		Some(Self {
 			name,
+			version,
 			dir: dir.to_path_buf(),
 			source,
 			runtime_app_id: runtime_app_id.or_else(|| guess_runtime(dir)),
@@ -189,10 +192,19 @@ mod tests {
 			.map(|b| (b.name.as_str(), b.source, b.runtime_app_id))
 			.collect();
 		names.sort_by_key(|n| n.0);
+		let ge11 = builds
+			.iter()
+			.find(|b| b.source == Source::Launcher)
+			.unwrap();
+		assert_eq!(ge11.version.as_deref(), Some("GE-Proton11-14"));
 		assert_eq!(
 			names,
 			[
-				("GE-Proton11-14", Source::Launcher, Some(steam::RUNTIME_4)),
+				(
+					"GE-Proton11-14-x86_64",
+					Source::Launcher,
+					Some(steam::RUNTIME_4)
+				),
 				(
 					"GE-Proton9-20",
 					Source::CompatTools,

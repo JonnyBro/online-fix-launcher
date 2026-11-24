@@ -29,12 +29,6 @@ lib.empty:
 lib.empty_hint:
   en: "Add a game with an OnlineFix or FreeTP fix: pick its .exe or drop it on the window."
   ru: "Добавьте игру с фиксом OnlineFix или FreeTP: выберите её .exe или перетащите его в окно."
-proton.empty:
-  en: "No Proton builds yet"
-  ru: "Сборок Proton пока нет"
-proton.empty_hint:
-  en: "GE-Proton downloads and the builds Steam already has will be listed here."
-  ru: "Здесь будут скачанные GE-Proton и сборки, которые уже есть в Steam."
 set.cat_appearance:
   en: "Appearance and language"
   ru: "Вид и язык"
@@ -257,3 +251,198 @@ game.delete_game_dir:
 game.delete_game_dir_warning:
   en: "The whole folder goes, with everything in it. This can't be undone."
   ru: "Папка удалится целиком, со всем содержимым. Отменить это нельзя."
+common.browse:
+  en: "Browse"
+  ru: "Обзор"
+common.close:
+  en: "Close"
+  ru: "Закрыть"
+lib.add_folder:
+  en: "Game folder…"
+  ru: "Папка с игрой…"
+lib.add_file:
+  en: "Archive or .exe…"
+  ru: "Архив или .exe…"
+lib.pick_source:
+  en: "Pick a game"
+  ru: "Выберите игру"
+lib.unpacking:
+  en: "Unpacking"
+  ru: "Распаковка"
+lib.unpacking_status:
+  en: "Unpacking %{name}: %{percent}%"
+  ru: "Распаковка %{name}: %{percent}%"
+add.title:
+  en: "Add a game"
+  ru: "Добавление игры"
+add.inspecting:
+  en: "Looking inside…"
+  ru: "Смотрю, что внутри…"
+add.password_needed:
+  en: "The archive wants a password, and online-fix.me isn't it."
+  ru: "Архиву нужен пароль, и online-fix.me не подошёл."
+add.password_wrong:
+  en: "That password didn't work either."
+  ru: "Этот пароль тоже не подошёл."
+add.password_hint:
+  en: "Archive password"
+  ru: "Пароль архива"
+add.password_try:
+  en: "Open"
+  ru: "Открыть"
+add.exe:
+  en: "Program that starts the game"
+  ru: "Программа, которая запускает игру"
+add.no_exe:
+  en: "No program found that could start a game."
+  ru: "Не нашлось программы, которая могла бы запустить игру."
+add.no_fix:
+  en: "No multiplayer fix found; the game will run as it is."
+  ru: "Сетевой фикс не найден; игра запустится как есть."
+add.fix_found:
+  en: "%{vendor} fix found, %{dlls} DLL(s) to override"
+  ru: "Найден фикс %{vendor}, DLL для подмены: %{dlls}"
+add.unpack_into:
+  en: "Unpack into"
+  ru: "Распаковать в"
+add.game_folder:
+  en: "Game folder: %{path}"
+  ru: "Папка игры: %{path}"
+add.delete_archive:
+  en: "Delete the archive after unpacking"
+  ru: "Удалить архив после распаковки"
+add.prefix_default:
+  en: "Default: the launcher's own folder"
+  ru: "По умолчанию: папка лаунчера"
+add.confirm:
+  en: "Add"
+  ru: "Добавить"
+game.prefix:
+  en: "Wine prefix"
+  ru: "Wine-префикс"
+art.menu:
+  en: "Pictures"
+  ru: "Обложка"
+art.pick_cover:
+  en: "Cover from SteamGridDB…"
+  ru: "Обложка из SteamGridDB…"
+art.pick_banner:
+  en: "Banner from SteamGridDB…"
+  ru: "Баннер из SteamGridDB…"
+art.refetch:
+  en: "Look for pictures again"
+  ru: "Найти картинки заново"
+art.loading:
+  en: "Asking SteamGridDB…"
+  ru: "Спрашиваю SteamGridDB…"
+art.nothing:
+  en: "SteamGridDB has nothing for this game."
+  ru: "У SteamGridDB для этой игры ничего нет."
+art.from_file:
+  en: "From a file…"
+  ru: "Из файла…"
+set.games_dir:
+  en: "Games folder"
+  ru: "Папка для игр"
+set.games_dir_hint:
+  en: "Archives unpack here unless you pick another folder when adding."
+  ru: "Сюда распаковываются архивы, если при добавлении не выбрать другую папку."
+set.sgdb_key_hint:
+  en: "API key"
+  ru: "API-ключ"
+set.sgdb_check:
+  en: "Check"
+  ru: "Проверить"
+set.sgdb_ok:
+  en: "The key works."
+  ru: "Ключ работает."
+set.sgdb_hint:
+  en: "Covers come from Steam. With a key, SteamGridDB fills in what Steam lacks and offers a gallery to pick from. Get a key on your SteamGridDB profile:"
+  ru: "Обложки берутся из Steam. С ключом SteamGridDB добавит то, чего нет в Steam, и откроет галерею для выбора. Ключ выдают в профиле SteamGridDB:"
+set.steam:
+  en: "Steam"
+  ru: "Steam"
+set.start_steam:
+  en: "Start Steam before a game if it isn't running"
+  ru: "Запускать Steam перед игрой, если он не запущен"
+art.cover_file:
+  en: "Cover from a file…"
+  ru: "Обложка из файла…"
+art.banner_file:
+  en: "Banner from a file…"
+  ru: "Баннер из файла…"
+art.pick_file:
+  en: "Pick a picture"
+  ru: "Выберите картинку"
+proton.reload:
+  en: "Refresh"
+  ru: "Обновить"
+proton.installed_title:
+  en: "Installed"
+  ru: "Установленные"
+proton.default:
+  en: "For games without their own pick:"
+  ru: "Для игр без своего выбора:"
+proton.auto:
+  en: "Newest (automatic)"
+  ru: "Самая новая (автоматически)"
+proton.auto_is:
+  en: "Newest (now %{name})"
+  ru: "Самая новая (сейчас %{name})"
+proton.none_installed:
+  en: "No Proton build found yet. Install a GE-Proton below."
+  ru: "Сборок Proton пока нет. Установите GE-Proton ниже."
+proton.src_launcher:
+  en: "downloaded here"
+  ru: "скачан лаунчером"
+proton.src_compat:
+  en: "compatibilitytools.d"
+  ru: "compatibilitytools.d"
+proton.src_steam:
+  en: "from Steam"
+  ru: "из Steam"
+proton.runtime_missing:
+  en: "Its Steam Linux Runtime isn't installed."
+  ru: "Нужный ему Steam Linux Runtime не установлен."
+proton.install_runtime:
+  en: "Install in Steam"
+  ru: "Установить в Steam"
+proton.make_default:
+  en: "Make default"
+  ru: "Сделать основным"
+proton.is_default:
+  en: "Default"
+  ru: "Основной"
+proton.remove_title:
+  en: "Remove this build?"
+  ru: "Удалить эту сборку?"
+proton.remove_text:
+  en: "%{name} is deleted from the disk. Games that used it switch to the default build."
+  ru: "%{name} будет удалён с диска. Игры, которые его использовали, перейдут на основную сборку."
+proton.loading:
+  en: "Asking GitHub for releases…"
+  ru: "Получаю список релизов с GitHub…"
+proton.list_failed:
+  en: "Couldn't get the release list: %{error}"
+  ru: "Не удалось получить список релизов: %{error}"
+proton.install:
+  en: "Install"
+  ru: "Установить"
+proton.installed_tag:
+  en: "Installed"
+  ru: "Установлен"
+proton.unpacking:
+  en: "Unpacking…"
+  ru: "Распаковка…"
+proton.download_title:
+  en: "Download"
+  ru: "Скачать"
+proton.ge_hint:
+  en: "GloriousEggroll's build with extra game fixes; the usual pick."
+  ru: "Сборка GloriousEggroll с дополнительными фиксами для игр; обычный выбор."
+proton.cachy_hint_v3:
+  en: "CachyOS's build. Your CPU supports x86-64-v3, so the faster v3 variant is downloaded."
+  ru: "Сборка CachyOS. Процессор поддерживает x86-64-v3, поэтому скачивается более быстрый вариант v3."
+proton.cachy_hint:
+  en: "CachyOS's build. Your CPU lacks x86-64-v3, so the plain x86_64 variant is downloaded."
+  ru: "Сборка CachyOS. Процессор не поддерживает x86-64-v3, поэтому скачивается обычный вариант x86_64."

@@ -4,7 +4,7 @@ impl LibraryView {
 	pub(super) fn grid(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
 		let theme = cx.theme().clone();
 		let games: Vec<Game> = self.visible(cx).into_iter().cloned().collect();
-		if games.is_empty() {
+		if games.is_empty() && self.unpacking.is_empty() {
 			return empty_state(
 				t!("lib.no_match").into_owned(),
 				t!("lib.no_match_hint").into_owned(),
@@ -12,7 +12,47 @@ impl LibraryView {
 			)
 			.into_any_element();
 		}
-		let cover = (CARD_WIDTH - 16., (CARD_WIDTH - 16.) * 1.5);
+		let size = (CARD_WIDTH - 16., (CARD_WIDTH - 16.) * 1.5);
+		let pending = self.unpacking.iter().enumerate().map(|(ix, u)| {
+			v_flex()
+				.id(("unpacking", ix))
+				.w(px(CARD_WIDTH))
+				.p_2()
+				.gap_1()
+				.rounded(theme.radius_lg)
+				.border_1()
+				.border_dashed()
+				.border_color(theme.border)
+				.child(
+					v_flex()
+						.w(px(size.0))
+						.h(px(size.1))
+						.items_center()
+						.justify_center()
+						.gap_2()
+						.px_3()
+						.child(
+							div()
+								.text_sm()
+								.text_color(theme.muted_foreground)
+								.child(t!("lib.unpacking").into_owned()),
+						)
+						.child(
+							Progress::new(("unpack-progress", ix))
+								.value(u.progress * 100.)
+								.w_full(),
+						)
+						.child(
+							div()
+								.text_sm()
+								.mono(cx)
+								.child(format!("{:.0}%", u.progress * 100.)),
+						),
+				)
+				.child(div().truncate().child(u.name.clone()))
+				.into_any_element()
+		});
+		let pending: Vec<AnyElement> = pending.collect();
 		let cards = games.into_iter().map(|game| {
 			let selected = self.selected.as_deref() == Some(&game.id);
 			let run = self.runs.get(&game.id).copied();
@@ -50,7 +90,10 @@ impl LibraryView {
 						this.select((!again).then(|| id.clone()), window, cx);
 					}
 				}))
-				.child(placeholder_cover(&game, cover, &theme))
+				.child({
+					let art = self.art.get(&game.id).cloned().unwrap_or_default();
+					cover(&game, art.grid.as_ref(), art.icon.as_ref(), size, &theme)
+				})
 				.child(div().truncate().child(game.name.clone()))
 				.child(
 					div()
@@ -74,7 +117,8 @@ impl LibraryView {
 					.items_start()
 					.gap(px(CARD_GAP))
 					.p_5()
-					.children(cards),
+					.children(pending)
+					.children(cards.map(IntoElement::into_any_element)),
 			)
 			.into_any_element()
 	}

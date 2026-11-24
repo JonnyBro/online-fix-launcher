@@ -68,6 +68,11 @@ impl AppPaths {
 		self.data_dir.join("prefixes")
 	}
 
+	/// Covers and icons, a folder per game.
+	pub fn art_dir(&self) -> PathBuf {
+		self.data_dir.join("art")
+	}
+
 	/// GE-Proton builds the app downloaded.
 	pub fn protons_dir(&self) -> PathBuf {
 		self.data_dir.join("protons")

@@ -25,12 +25,14 @@ use onlinefix_launcher_core::app_update::AppRelease;
 use onlinefix_launcher_core::{AppPaths, Command, Engine, Event, Settings};
 use serde::{Deserialize, Serialize};
 
+use crate::dialogs::add_game::AddGameDialog;
+use crate::dialogs::art_gallery::ArtGallery;
 use crate::icons::AppIcon;
 use crate::logbuf::highlight::{LevelColors, LogHighlighter, SharedColors};
 use crate::logbuf::{Level as LogLevel, LogBuffer, level_of};
 use crate::theme::Mono;
 use crate::ui_state::{SavedBounds, UiState};
-use crate::views::library::LibraryView;
+use crate::views::library::{LibraryEvent, LibraryView};
 use crate::views::protons::ProtonsView;
 use crate::views::settings::SettingsView;
 
@@ -84,8 +86,13 @@ pub struct Shell {
 	log_view: Entity<EditorState>,
 	log_colors: SharedColors,
 	settings: Settings,
+	add_dialog: Option<WeakEntity<AddGameDialog>>,
+	gallery: Option<WeakEntity<ArtGallery>>,
+	/// Ties engine answers to the dialog that asked.
+	next_request: u64,
 	_tasks: Vec<Task<()>>,
 	_appearance: Subscription,
+	_library_events: Subscription,
 }
 
 /// What `main` read before the window opened.
@@ -164,8 +171,29 @@ impl Shell {
 		}
 
 		let library = cx.new(|cx| LibraryView::new(engine.clone(), paths.clone(), window, cx));
-		let protons = cx.new(|_| ProtonsView::new(paths.protons_dir()));
-		let settings_view = cx.new(|_| SettingsView::new(engine.clone(), settings.clone()));
+		let protons =
+			cx.new(|_| ProtonsView::new(engine.clone(), paths.protons_dir(), settings.clone()));
+		let settings_view =
+			cx.new(|cx| SettingsView::new(engine.clone(), settings.clone(), window, cx));
+		let library_events = cx.subscribe_in(
+			&library,
+			window,
+			|this, _, event: &LibraryEvent, window, cx| match event {
+				LibraryEvent::Add(path) => this.open_add(path.clone(), window, cx),
+				LibraryEvent::PickArt { id, kind } => {
+					let request = this.request_id();
+					let gallery = ArtGallery::open(
+						this.engine.clone(),
+						id.clone(),
+						*kind,
+						request,
+						window,
+						cx,
+					);
+					this.gallery = Some(gallery.downgrade());
+				}
+			},
+		);
 		let log_colors = SharedColors::default();
 		let log_view = cx.new(|cx| {
 			let mut editor = EditorState::new(window, cx)
@@ -182,6 +210,9 @@ impl Shell {
 		});
 		if settings.check_app_updates {
 			engine.send(Command::CheckAppUpdate);
+		}
+		if ui.tab == Some(Tab::Proton) {
+			protons.update(cx, |p, cx| p.shown(cx));
 		}
 		Self {
 			engine,
@@ -201,8 +232,12 @@ impl Shell {
 			log_view,
 			log_colors,
 			settings,
+			add_dialog: None,
+			gallery: None,
+			next_request: 0,
 			_tasks: vec![events, log_poll],
 			_appearance: appearance,
+			_library_events: library_events,
 		}
 	}
 
@@ -225,22 +260,37 @@ impl Shell {
 		window.push_notification(note, cx);
 	}
 
-	/// Dropped `.exe` files become games; anything else is ignored.
-	fn add_dropped(&mut self, paths: &ExternalPaths, cx: &mut Context<Self>) {
-		for path in paths.paths() {
-			let is_exe = path
-				.extension()
-				.and_then(|e| e.to_str())
-				.is_some_and(|e| e.eq_ignore_ascii_case("exe"));
-			if is_exe {
-				self.engine.send(Command::AddGame { exe: path.clone() });
-			}
-		}
+	fn request_id(&mut self) -> u64 {
+		self.next_request += 1;
+		self.next_request
+	}
+
+	fn open_add(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+		let request = self.request_id();
+		let dialog = AddGameDialog::open(
+			self.engine.clone(),
+			path,
+			self.settings.games_dir(),
+			request,
+			window,
+			cx,
+		);
+		self.add_dialog = Some(dialog.downgrade());
 		self.set_tab(Tab::Library, cx);
+	}
+
+	/// A dropped folder, archive or exe opens the add dialog; one at a time.
+	fn add_dropped(&mut self, paths: &ExternalPaths, window: &mut Window, cx: &mut Context<Self>) {
+		if let Some(path) = paths.paths().first() {
+			self.open_add(path.clone(), window, cx);
+		}
 	}
 
 	fn set_tab(&mut self, tab: Tab, cx: &mut Context<Self>) {
 		self.tab = tab;
+		if tab == Tab::Proton {
+			self.protons.update(cx, |p, cx| p.shown(cx));
+		}
 		cx.notify();
 	}
 }
@@ -262,7 +312,9 @@ impl Render for Shell {
 			.drag_over::<ExternalPaths>(move |style, _, _, _| {
 				style.bg(drop_tint).border_2().border_color(drop_border)
 			})
-			.on_drop(cx.listener(|this, paths: &ExternalPaths, _, cx| this.add_dropped(paths, cx)))
+			.on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
+				this.add_dropped(paths, window, cx)
+			}))
 			.child(
 				h_flex()
 					.flex_1()

@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::checkbox::Checkbox;
+use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::{
 	ActiveTheme, Disableable, Icon, IconName, Selectable, Sizable, h_flex, v_flex,
 };
@@ -43,20 +44,89 @@ pub struct SettingsView {
 	engine: Rc<Engine>,
 	settings: Settings,
 	category: Category,
+	games_dir: Entity<InputState>,
+	sgdb_key: Entity<InputState>,
+	/// The answer to "Check", `None` before one.
+	key_check: Option<Result<(), String>>,
+	checking_key: bool,
+	_inputs: Vec<Subscription>,
 }
 
 impl SettingsView {
-	pub fn new(engine: Rc<Engine>, settings: Settings) -> Self {
-		Self {
+	pub fn new(
+		engine: Rc<Engine>,
+		settings: Settings,
+		window: &mut Window,
+		cx: &mut Context<Self>,
+	) -> Self {
+		let games_dir = cx.new(|cx| InputState::new(window, cx));
+		let sgdb_key =
+			cx.new(|cx| InputState::new(window, cx).placeholder(t!("set.sgdb_key_hint")));
+		let redraw = |input: &Entity<InputState>, window: &mut Window, cx: &mut Context<Self>| {
+			cx.subscribe_in(input, window, |_, _, event: &InputEvent, _, cx| {
+				if matches!(event, InputEvent::Change) {
+					cx.notify();
+				}
+			})
+		};
+		let inputs = vec![
+			redraw(&games_dir, window, cx),
+			redraw(&sgdb_key, window, cx),
+		];
+		let mut view = Self {
+			_inputs: inputs,
 			engine,
 			settings,
 			category: Category::Appearance,
-		}
+			games_dir,
+			sgdb_key,
+			key_check: None,
+			checking_key: false,
+		};
+		view.fill_inputs(window, cx);
+		view
+	}
+
+	fn fill_inputs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+		let dir = self.settings.games_dir().display().to_string();
+		let key = self.settings.steamgriddb_key.clone();
+		self.games_dir
+			.update(cx, |i, cx| i.set_value(dir, window, cx));
+		self.sgdb_key
+			.update(cx, |i, cx| i.set_value(key, window, cx));
 	}
 
 	pub fn on_saved(&mut self, settings: Settings, cx: &mut Context<Self>) {
 		self.settings = settings;
 		cx.notify();
+	}
+
+	pub fn key_checked(&mut self, result: Result<(), String>, cx: &mut Context<Self>) {
+		self.checking_key = false;
+		self.key_check = Some(result);
+		cx.notify();
+	}
+
+	fn pick_games_dir(&self, window: &mut Window, cx: &mut Context<Self>) {
+		let picked = cx.prompt_for_paths(PathPromptOptions {
+			files: false,
+			directories: true,
+			multiple: false,
+			prompt: None,
+		});
+		let input = self.games_dir.clone();
+		cx.spawn_in(window, async move |_, cx| {
+			if let Ok(Ok(Some(paths))) = picked.await
+				&& let Some(path) = paths.into_iter().next()
+			{
+				let _ = cx.update(|window, cx| {
+					input.update(cx, |i, cx| {
+						i.set_value(path.display().to_string(), window, cx)
+					})
+				});
+			}
+		})
+		.detach();
 	}
 
 	fn save_now(&mut self, change: impl Fn(&mut Settings)) {
@@ -297,18 +367,132 @@ impl SettingsView {
 	}
 
 	fn general(&self, cx: &mut Context<Self>) -> impl IntoElement {
-		v_flex().gap_4().child(field(
-			t!("set.updates").into(),
-			Checkbox::new("check-updates")
-				.label(t!("set.check_updates").into_owned())
-				.checked(self.settings.check_app_updates)
-				.on_click(cx.listener(|this, checked: &bool, _, cx| {
-					let checked = *checked;
-					this.save_now(|s| s.check_app_updates = checked);
-					cx.notify();
-				})),
-			cx,
-		))
+		let theme = cx.theme().clone();
+		let dir_text = self.games_dir.read(cx).value().trim().to_owned();
+		let dir_changed = std::path::Path::new(&dir_text) != self.settings.games_dir();
+		let key_text = self.sgdb_key.read(cx).value().trim().to_owned();
+		let key_changed = key_text != self.settings.steamgriddb_key;
+		let key_status = self.key_check.as_ref().map(|r| match r {
+			Ok(()) => (t!("set.sgdb_ok").into_owned(), theme.success),
+			Err(e) => (e.clone(), theme.danger),
+		});
+		v_flex()
+			.gap_4()
+			.child(field(
+				t!("set.games_dir").into(),
+				v_flex()
+					.gap_1()
+					.child(
+						h_flex()
+							.gap_2()
+							.child(div().flex_1().child(Input::new(&self.games_dir).small()))
+							.child(
+								Button::new("games-dir-browse")
+									.label(t!("common.browse"))
+									.small()
+									.outline()
+									.on_click(cx.listener(|this, _, window, cx| {
+										this.pick_games_dir(window, cx)
+									})),
+							)
+							.child(
+								Button::new("games-dir-save")
+									.label(t!("game.save"))
+									.small()
+									.primary()
+									.disabled(
+										!dir_changed
+											|| !std::path::Path::new(&dir_text).is_absolute(),
+									)
+									.on_click(cx.listener(move |this, _, _, cx| {
+										let dir = std::path::PathBuf::from(&dir_text);
+										this.save_now(|s| s.games_dir = Some(dir.clone()));
+										cx.notify();
+									})),
+							),
+					)
+					.child(hint(t!("set.games_dir_hint").into(), cx)),
+				cx,
+			))
+			.child(field(
+				"SteamGridDB".into(),
+				v_flex()
+					.gap_1()
+					.child(
+						h_flex()
+							.gap_2()
+							.child(div().flex_1().child(Input::new(&self.sgdb_key).small()))
+							.child(
+								Button::new("sgdb-check")
+									.label(t!("set.sgdb_check"))
+									.small()
+									.outline()
+									.loading(self.checking_key)
+									.disabled(key_text.is_empty())
+									.on_click(cx.listener({
+										let key = key_text.clone();
+										move |this, _, _, cx| {
+											this.checking_key = true;
+											this.key_check = None;
+											this.engine
+												.send(Command::CheckSteamGridDbKey(key.clone()));
+											cx.notify();
+										}
+									})),
+							)
+							.child(
+								Button::new("sgdb-save")
+									.label(t!("game.save"))
+									.small()
+									.primary()
+									.disabled(!key_changed)
+									.on_click(cx.listener(move |this, _, _, cx| {
+										let key = key_text.clone();
+										this.save_now(|s| s.steamgriddb_key = key.clone());
+										cx.notify();
+									})),
+							),
+					)
+					.children(
+						key_status
+							.map(|(text, color)| div().text_sm().text_color(color).child(text)),
+					)
+					.child(hint(t!("set.sgdb_hint").into(), cx))
+					.child(
+						Button::new("sgdb-get-key")
+							.label("steamgriddb.com/profile/preferences/api")
+							.link()
+							.small()
+							.on_click(|_, _, cx| {
+								cx.open_url("https://www.steamgriddb.com/profile/preferences/api")
+							}),
+					),
+				cx,
+			))
+			.child(field(
+				t!("set.steam").into(),
+				Checkbox::new("start-steam")
+					.label(t!("set.start_steam").into_owned())
+					.checked(self.settings.start_steam)
+					.on_click(cx.listener(|this, checked: &bool, _, cx| {
+						let checked = *checked;
+						this.save_now(|s| s.start_steam = checked);
+						cx.notify();
+					})),
+				cx,
+			))
+			.child(field(
+				t!("set.updates").into(),
+				Checkbox::new("check-updates")
+					.label(t!("set.check_updates").into_owned())
+					.checked(self.settings.check_app_updates)
+					.on_click(cx.listener(|this, checked: &bool, _, cx| {
+						let checked = *checked;
+						this.save_now(|s| s.check_app_updates = checked);
+						cx.notify();
+					})),
+				cx,
+			))
 	}
 }
 
