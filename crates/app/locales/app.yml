@@ -584,3 +584,24 @@ saves.restore_title:
 saves.restore_text:
   en: "Saves from %{when} are put back into the prefix. Files with the same names are overwritten; newer files the backup doesn't have stay."
   ru: "Сохранения от %{when} вернутся в префикс. Файлы с теми же именами будут перезаписаны, а новые файлы, которых нет в копии, останутся."
+set.desktop:
+  en: "Application menu"
+  ru: "Меню приложений"
+set.desktop_add:
+  en: "Add to menu"
+  ru: "Добавить в меню"
+set.desktop_update:
+  en: "Update entry"
+  ru: "Обновить ярлык"
+set.desktop_remove:
+  en: "Remove"
+  ru: "Убрать"
+set.desktop_hint:
+  en: "Adds OnlineFix Launcher with its icon to the application menu. If you move the launcher, the entry points at the new place the next time you start it."
+  ru: "Добавляет OnlineFix Launcher с иконкой в меню приложений. Если перенести лаунчер, при следующем запуске пункт меню укажет на новое место."
+set.desktop_added:
+  en: "OnlineFix Launcher is in the application menu."
+  ru: "OnlineFix Launcher добавлен в меню приложений."
+set.desktop_removed:
+  en: "OnlineFix Launcher was removed from the application menu."
+  ru: "OnlineFix Launcher убран из меню приложений."

@@ -4,8 +4,9 @@ use std::rc::Rc;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::checkbox::Checkbox;
 use gpui_kit::component::input::{Input, InputEvent, InputState};
+use gpui_kit::component::notification::Notification;
 use gpui_kit::component::{
-	ActiveTheme, Disableable, Icon, IconName, Selectable, Sizable, h_flex, v_flex,
+	ActiveTheme, Disableable, Icon, IconName, Selectable, Sizable, WindowExt, h_flex, v_flex,
 };
 use gpui_kit::prelude::*;
 use gpui_kit::*;
@@ -367,6 +368,57 @@ impl SettingsView {
 			))
 	}
 
+	fn desktop_buttons(&self, cx: &mut Context<Self>) -> AnyElement {
+		let installed = crate::desktop::is_installed();
+		let run = |install: bool| {
+			move |_: &mut Self, _: &ClickEvent, window: &mut Window, cx: &mut Context<Self>| {
+				let result = if install {
+					crate::desktop::install()
+				} else {
+					crate::desktop::uninstall()
+				};
+				let note = match result {
+					Ok(()) if install => {
+						Notification::success(t!("set.desktop_added").into_owned())
+					}
+					Ok(()) => Notification::info(t!("set.desktop_removed").into_owned()),
+					Err(e) => Notification::error(e),
+				};
+				window.push_notification(note, cx);
+				cx.notify();
+			}
+		};
+		v_flex()
+			.gap_1()
+			.items_start()
+			.child(
+				h_flex()
+					.gap_2()
+					.child(
+						Button::new("desktop-install")
+							.small()
+							.outline()
+							.label(if installed {
+								t!("set.desktop_update")
+							} else {
+								t!("set.desktop_add")
+							})
+							.on_click(cx.listener(run(true))),
+					)
+					.when(installed, |row| {
+						row.child(
+							Button::new("desktop-remove")
+								.small()
+								.ghost()
+								.label(t!("set.desktop_remove"))
+								.on_click(cx.listener(run(false))),
+						)
+					}),
+			)
+			.child(hint(t!("set.desktop_hint").into(), cx))
+			.into_any_element()
+	}
+
 	fn general(&self, cx: &mut Context<Self>) -> impl IntoElement {
 		let theme = cx.theme().clone();
 		let dir_text = self.games_dir.read(cx).value().trim().to_owned();
@@ -377,8 +429,10 @@ impl SettingsView {
 			Ok(()) => (t!("set.sgdb_ok").into_owned(), theme.success),
 			Err(e) => (e.clone(), theme.danger),
 		});
+		let desktop = self.desktop_buttons(cx);
 		v_flex()
 			.gap_4()
+			.child(field(t!("set.desktop").into(), desktop, cx))
 			.child(field(
 				t!("set.games_dir").into(),
 				v_flex()

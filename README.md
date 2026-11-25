@@ -55,10 +55,8 @@ settings.
 
 Download `onlinefix-launcher-<version>-linux-x86_64.tar.gz` from the
 [releases](https://github.com/JonnyBro/online-fix-launcher/releases), unpack
-it and run `onlinefix-launcher`. For the application menu, copy
-`onlinefix-launcher.desktop` to `~/.local/share/applications/` and
-`onlinefix-launcher.svg` to `~/.local/share/icons/hicolor/scalable/apps/`,
-with the binary somewhere on your `PATH`.
+it anywhere and run `onlinefix-launcher`. To get it into the application
+menu, press Add to menu in the General section of the settings.
 
 ## Where things are
 

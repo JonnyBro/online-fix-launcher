@@ -1,5 +1,6 @@
 rust_i18n::i18n!("locales", fallback = "en");
 
+mod desktop;
 mod dialogs;
 mod icons;
 mod logbuf;
@@ -27,6 +28,7 @@ fn main() {
 	};
 	let logs = logbuf::LogBuffer::default();
 	let _log_guard = init_logging(&paths, logs.clone());
+	desktop::refresh_if_installed();
 
 	let ui = ui_state::UiState::load(&paths.ui_state_file());
 	let scale = ui.scale.unwrap_or(1.);

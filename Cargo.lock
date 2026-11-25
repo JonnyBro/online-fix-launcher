@@ -4562,6 +4562,7 @@ name = "onlinefix-launcher"
 version = "1.1.0"
 dependencies = [
  "chrono",
+ "directories",
  "gpui-kit",
  "notify-rust",
  "onlinefix-launcher-core",

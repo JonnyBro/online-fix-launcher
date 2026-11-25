@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+directories = "6.0.0"
 gpui-kit = "0.10.0"
 notify-rust = "4.19.0"
 onlinefix-launcher-core = { path = "../core" }
