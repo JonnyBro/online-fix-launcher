@@ -83,13 +83,28 @@ pub async fn check() -> Result<Option<AppRelease>, String> {
 	)
 }
 
+/// The launcher's binary on disk. Once an update renamed a new file over
+/// it, Linux reports the running one as `<path> (deleted)`; the new binary
+/// is at `<path>`.
+pub fn current_exe() -> std::io::Result<PathBuf> {
+	let exe = std::env::current_exe()?;
+	strip_deleted(&exe).canonicalize()
+}
+
+fn strip_deleted(exe: &Path) -> PathBuf {
+	match exe.to_str().and_then(|s| s.strip_suffix(" (deleted)")) {
+		Some(path) => PathBuf::from(path),
+		None => exe.to_path_buf(),
+	}
+}
+
 /// The running binary, when the launcher may replace it: a release build
 /// in a folder this user can write to (not a package in `/usr/bin`).
 pub fn replaceable_binary() -> Option<PathBuf> {
 	if cfg!(debug_assertions) {
 		return None;
 	}
-	let exe = std::env::current_exe().ok()?.canonicalize().ok()?;
+	let exe = current_exe().ok()?;
 	let dir = exe.parent()?;
 	let probe = dir.join(".onlinefix-launcher-write-probe");
 	std::fs::write(&probe, b"").ok()?;
@@ -268,6 +283,18 @@ mod tests {
 			0o755
 		);
 		assert!(!dir.path().join(".onlinefix-launcher.update").exists());
+	}
+
+	#[test]
+	fn replaced_binary_path() {
+		assert_eq!(
+			strip_deleted(Path::new("/opt/ofl/onlinefix-launcher (deleted)")),
+			Path::new("/opt/ofl/onlinefix-launcher")
+		);
+		assert_eq!(
+			strip_deleted(Path::new("/opt/ofl/onlinefix-launcher")),
+			Path::new("/opt/ofl/onlinefix-launcher")
+		);
 	}
 
 	#[test]

@@ -23,9 +23,7 @@ fn files() -> Option<Files> {
 }
 
 fn current_exe() -> Result<PathBuf, String> {
-	std::env::current_exe()
-		.and_then(|exe| exe.canonicalize())
-		.map_err(|e| e.to_string())
+	onlinefix_launcher_core::app_update::current_exe().map_err(|e| e.to_string())
 }
 
 /// The entry runs this binary by its full path: a release archive is unpacked

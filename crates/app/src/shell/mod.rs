@@ -290,9 +290,11 @@ impl Shell {
 	/// instance lock to go.
 	fn restart(&mut self, window: &mut Window, cx: &mut Context<Self>) {
 		self.save_ui(window.window_bounds(), cx);
-		let started = std::env::current_exe().and_then(|exe| {
+		let started = onlinefix_launcher_core::app_update::current_exe().and_then(|exe| {
+			use std::os::unix::process::CommandExt;
 			std::process::Command::new(exe)
 				.arg(crate::AFTER_UPDATE)
+				.process_group(0)
 				.spawn()
 		});
 		match started {
