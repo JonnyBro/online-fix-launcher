@@ -4572,6 +4572,7 @@ dependencies = [
  "serde_json",
  "smol",
  "sys-locale",
+ "tempfile",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",

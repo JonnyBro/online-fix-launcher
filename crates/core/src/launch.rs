@@ -37,7 +37,7 @@ pub struct Context<'a> {
 	pub steam_root: Option<PathBuf>,
 	/// The runtime's `run` script, when the game uses it and it's installed.
 	pub runtime: Option<PathBuf>,
-	/// Wine's debug channels; `None` silences Wine.
+	/// Wine's debug channels; `None` leaves them to the game's debug switch.
 	pub wine_debug: Option<String>,
 	/// `LD_PRELOAD` the launcher itself got, kept in front of the overlay.
 	pub ld_preload: Option<String>,
@@ -108,7 +108,9 @@ pub fn plan(game: &Game, ctx: &Context) -> Result<Plan, LaunchError> {
 		("WINEDLLOVERRIDES".to_owned(), overrides),
 		(
 			"WINEDEBUG".to_owned(),
-			ctx.wine_debug.clone().unwrap_or_else(|| "-all".into()),
+			ctx.wine_debug
+				.clone()
+				.unwrap_or_else(|| game.wine_debug().to_owned()),
 		),
 		("STEAM_COMPAT_DATA_PATH".to_owned(), path_str(&ctx.prefix)),
 		(
@@ -275,6 +277,16 @@ mod tests {
 		);
 		assert_eq!(env(&plan, "LD_PRELOAD"), None);
 		assert_eq!(env(&plan, "PROTON_USE_WINED3D"), None);
+
+		game.debug = true;
+		let debug = super::plan(&game, &ctx).unwrap();
+		assert_eq!(
+			env(&debug, "WINEDEBUG"),
+			Some(crate::library::DEBUG_CHANNELS)
+		);
+		game.debug_channels = " +relay ".into();
+		let debug = super::plan(&game, &ctx).unwrap();
+		assert_eq!(env(&debug, "WINEDEBUG"), Some("+relay"));
 	}
 
 	#[test]

@@ -116,6 +116,57 @@ lib.no_match:
 lib.no_match_hint:
   en: "No game has that in its name."
   ru: "Ни в одном названии игры нет такого текста."
+lib.all_hidden:
+  en: "All games are hidden"
+  ru: "Все игры скрыты"
+lib.all_hidden_hint:
+  en: "Show hidden games with the eye button above."
+  ru: "Скрытые игры можно показать кнопкой с глазом выше."
+lib.sort_name:
+  en: "Name"
+  ru: "Название"
+lib.sort_play_time:
+  en: "Time played"
+  ru: "Время в игре"
+lib.sort_last_played:
+  en: "Last played"
+  ru: "Последний запуск"
+lib.sort_added:
+  en: "Added"
+  ru: "Добавлена"
+lib.col_game:
+  en: "Game"
+  ru: "Игра"
+lib.reverse:
+  en: "Reverse order"
+  ru: "Обратный порядок"
+lib.view_grid:
+  en: "Grid"
+  ru: "Сетка"
+lib.view_list:
+  en: "List"
+  ru: "Список"
+lib.hidden_shown:
+  en: "Hidden games are shown"
+  ru: "Скрытые игры показаны"
+lib.hidden_hidden:
+  en: "Show hidden games"
+  ru: "Показать скрытые игры"
+lib.menu_details:
+  en: "Details"
+  ru: "Подробности"
+lib.favorite:
+  en: "Add to favorites"
+  ru: "В избранное"
+lib.unfavorite:
+  en: "Remove from favorites"
+  ru: "Убрать из избранного"
+lib.hide:
+  en: "Hide"
+  ru: "Скрыть"
+lib.unhide:
+  en: "Show in library"
+  ru: "Вернуть в библиотеку"
 lib.never_played:
   en: "Not played yet"
   ru: "Ещё не запускалась"
@@ -183,8 +234,35 @@ game.open_prefix:
   en: "Prefix"
   ru: "Префикс"
 game.open_log:
-  en: "Last log"
-  ru: "Последний лог"
+  en: "Log"
+  ru: "Лог"
+log.show:
+  en: "Show log"
+  ru: "Показать лог"
+log.back:
+  en: "Back to the library"
+  ru: "Назад к библиотеке"
+log.title:
+  en: "%{name}: log"
+  ru: "%{name}: лог"
+log.debug:
+  en: "Launch with debugging"
+  ru: "Запуск с отладкой"
+log.debug_hint:
+  en: "Turns on Wine debug channels (WINEDEBUG) for the next launch. The log gets much longer and the game may run slower."
+  ru: "Включает каналы отладки Wine (WINEDEBUG) со следующего запуска. Лог становится намного длиннее, игра может работать медленнее."
+log.open_file:
+  en: "Open file"
+  ru: "Открыть файл"
+log.empty:
+  en: "No log yet"
+  ru: "Лога пока нет"
+log.empty_hint:
+  en: "It appears here when the game is launched and fills in as it runs."
+  ru: "Он появится здесь при запуске игры и будет дополняться по ходу."
+log.empty_running:
+  en: "The game is starting; output shows up here in a moment."
+  ru: "Игра запускается, вывод появится здесь через мгновение."
 game.settings:
   en: "Settings"
   ru: "Настройки"

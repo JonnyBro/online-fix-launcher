@@ -6,6 +6,7 @@ use gpui_kit::*;
 use serde::{Deserialize, Serialize};
 
 use crate::shell::Tab;
+use crate::views::library::LibraryPrefs;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct SavedBounds {
@@ -52,6 +53,7 @@ pub struct UiState {
 	pub logs_open: bool,
 	/// Interface scale, 1.0 by default.
 	pub scale: Option<f32>,
+	pub library: LibraryPrefs,
 }
 
 impl UiState {

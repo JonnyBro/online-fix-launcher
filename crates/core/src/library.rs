@@ -48,6 +48,24 @@ pub struct Game {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub last_played: Option<u64>,
 	pub added: u64,
+	#[serde(skip_serializing_if = "is_false")]
+	pub favorite: bool,
+	/// Run with Wine's debug channels on, so the log says more.
+	#[serde(skip_serializing_if = "is_false")]
+	pub debug: bool,
+	/// The channels for `debug`; empty means [`DEBUG_CHANNELS`].
+	#[serde(skip_serializing_if = "String::is_empty")]
+	pub debug_channels: String,
+	/// Left out of the library unless hidden games are shown.
+	#[serde(skip_serializing_if = "is_false")]
+	pub hidden: bool,
+}
+
+/// What Proton itself turns on with `PROTON_LOG=1`.
+pub const DEBUG_CHANNELS: &str = "+timestamp,+pid,+tid,+seh,+debugstr,+loaddll,+mscoree";
+
+fn is_false(value: &bool) -> bool {
+	!value
 }
 
 impl Default for Game {
@@ -72,6 +90,10 @@ impl Default for Game {
 			play_seconds: 0,
 			last_played: None,
 			added: 0,
+			favorite: false,
+			debug: false,
+			debug_channels: String::new(),
+			hidden: false,
 		}
 	}
 }
@@ -91,6 +113,15 @@ impl Game {
 		self.prefix
 			.clone()
 			.unwrap_or_else(|| paths.default_prefixes_dir().join(&self.id))
+	}
+
+	/// `WINEDEBUG` for the next run.
+	pub fn wine_debug(&self) -> &str {
+		match self.debug_channels.trim() {
+			_ if !self.debug => "-all",
+			"" => DEBUG_CHANNELS,
+			channels => channels,
+		}
 	}
 
 	pub fn work_dir(&self) -> &Path {
@@ -200,6 +231,8 @@ mod tests {
 		game.real_app_id = Some(1_234_560);
 		let mut other = Game::new("Other", "/games/other/Other.exe");
 		other.steam_overlay = true;
+		other.favorite = true;
+		other.hidden = true;
 		assert_ne!(game.id, other.id);
 
 		let mut library = Library::default();

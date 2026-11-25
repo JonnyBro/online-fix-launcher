@@ -159,7 +159,8 @@ impl LibraryView {
 		let folders = {
 			let game_dir = game.work_dir().to_path_buf();
 			let prefix = game.prefix_dir(&self.paths);
-			let log = self.paths.game_log(&game.id);
+			let log_id = game.id.clone();
+			let log_open = self.log.as_ref().is_some_and(|log| log.id == game.id);
 			h_flex()
 				.gap_2()
 				.flex_wrap()
@@ -184,10 +185,17 @@ impl LibraryView {
 				.child(
 					Button::new("open-log")
 						.label(t!("game.open_log"))
+						.icon(Icon::new(IconName::SquareTerminal))
 						.small()
 						.outline()
-						.disabled(!log.is_file())
-						.on_click(move |_, _, _| open_path(&log)),
+						.selected(log_open)
+						.on_click(cx.listener(move |this, _, window, cx| {
+							if log_open {
+								this.close_log(cx);
+							} else {
+								this.open_log(log_id.clone(), window, cx);
+							}
+						})),
 				)
 		};
 
@@ -205,6 +213,47 @@ impl LibraryView {
 						.pt_4()
 						.gap_2()
 						.child(div().flex_1().min_w_0().text_lg().child(saved.name.clone()))
+						.child(
+							Button::new("favorite")
+								.icon(Icon::new(if saved.favorite {
+									IconName::StarFill
+								} else {
+									IconName::Star
+								}))
+								.ghost()
+								.xsmall()
+								.when(saved.favorite, |b| b.text_color(theme.warning))
+								.tooltip(if saved.favorite {
+									t!("lib.unfavorite")
+								} else {
+									t!("lib.favorite")
+								})
+								.on_click(cx.listener({
+									let (id, value) = (id.clone(), !saved.favorite);
+									move |this, _, _, cx| this.set_favorite(&id, value, cx)
+								})),
+						)
+						.child(
+							Button::new("hide")
+								.icon(Icon::new(if saved.hidden {
+									IconName::Eye
+								} else {
+									IconName::EyeOff
+								}))
+								.ghost()
+								.xsmall()
+								.tooltip(if saved.hidden {
+									t!("lib.unhide")
+								} else {
+									t!("lib.hide")
+								})
+								.on_click(cx.listener({
+									let (id, value) = (id.clone(), !saved.hidden);
+									move |this, _, window, cx| {
+										this.set_hidden(&id, value, window, cx)
+									}
+								})),
+						)
 						.child(
 							Button::new("close-details")
 								.icon(Icon::new(IconName::Close))

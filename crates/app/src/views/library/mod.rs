@@ -1,28 +1,32 @@
 mod details;
+mod game_log;
 mod grid;
+mod list;
 
 use rust_i18n::t;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::time::Duration;
 
 use gpui_kit::component::button::{Button, ButtonVariant, ButtonVariants};
 use gpui_kit::component::checkbox::Checkbox;
 use gpui_kit::component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
-use gpui_kit::component::menu::{DropdownMenu, PopupMenuItem};
+use gpui_kit::component::menu::{ContextMenuExt, DropdownMenu, PopupMenu, PopupMenuItem};
 use gpui_kit::component::progress::Progress;
 use gpui_kit::component::{
-	ActiveTheme, Disableable, Icon, IconName, Sizable, Theme, WindowExt, h_flex, v_flex,
+	ActiveTheme, Disableable, Icon, IconName, Selectable, Sizable, Theme, WindowExt, h_flex, v_flex,
 };
 use gpui_kit::prelude::*;
 use gpui_kit::*;
 use onlinefix_launcher_core::art::{ArtKind, ArtStore};
 use onlinefix_launcher_core::fix;
-use onlinefix_launcher_core::library::{Game, env_from_text, env_to_text};
+use onlinefix_launcher_core::library::{DEBUG_CHANNELS, Game, env_from_text, env_to_text};
 use onlinefix_launcher_core::proton::ProtonBuild;
 use onlinefix_launcher_core::tools::WineTool;
 use onlinefix_launcher_core::{AppPaths, Command, Engine, PendingStage, RunState};
+use serde::{Deserialize, Serialize};
 
 use crate::theme::Mono;
 use crate::widgets::{empty_state, format_date, format_play_time, format_size, open_path};
@@ -30,6 +34,83 @@ use crate::widgets::{empty_state, format_date, format_play_time, format_size, op
 const DETAILS_WIDTH: f32 = 380.;
 const CARD_WIDTH: f32 = 160.;
 const CARD_GAP: f32 = 16.;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Sort {
+	Name,
+	PlayTime,
+	LastPlayed,
+	Added,
+}
+
+impl Sort {
+	const ALL: [Sort; 4] = [Sort::Name, Sort::PlayTime, Sort::LastPlayed, Sort::Added];
+
+	fn label(self) -> String {
+		match self {
+			Sort::Name => t!("lib.sort_name"),
+			Sort::PlayTime => t!("lib.sort_play_time"),
+			Sort::LastPlayed => t!("lib.sort_last_played"),
+			Sort::Added => t!("lib.sort_added"),
+		}
+		.into_owned()
+	}
+
+	/// Names go A to Z; times and dates start with the biggest or newest.
+	fn starts_descending(self) -> bool {
+		self != Sort::Name
+	}
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum Layout {
+	#[default]
+	Grid,
+	List,
+}
+
+/// How the library is sorted and shown, kept between runs.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LibraryPrefs {
+	pub sort: Sort,
+	pub descending: bool,
+	pub layout: Layout,
+	pub show_hidden: bool,
+}
+
+impl Default for LibraryPrefs {
+	fn default() -> Self {
+		Self {
+			sort: Sort::LastPlayed,
+			descending: true,
+			layout: Layout::Grid,
+			show_hidden: false,
+		}
+	}
+}
+
+/// Favorites first, then by `sort`; ties go by name.
+fn sort_games(games: &mut [&Game], sort: Sort, descending: bool) {
+	let by_name = |a: &Game, b: &Game| a.name.to_lowercase().cmp(&b.name.to_lowercase());
+	games.sort_by(|a, b| {
+		let primary = match sort {
+			Sort::Name => by_name(a, b),
+			Sort::PlayTime => a.play_seconds.cmp(&b.play_seconds),
+			Sort::LastPlayed => a.last_played.cmp(&b.last_played),
+			Sort::Added => a.added.cmp(&b.added),
+		};
+		let primary = if descending {
+			primary.reverse()
+		} else {
+			primary
+		};
+		b.favorite
+			.cmp(&a.favorite)
+			.then(primary)
+			.then_with(|| by_name(a, b))
+	});
+}
 
 /// Text fields of the details panel; they edit the draft.
 struct Fields {
@@ -57,6 +138,8 @@ pub enum LibraryEvent {
 	},
 }
 
+type MenuAction = Rc<dyn Fn(&mut LibraryView, &mut Window, &mut Context<LibraryView>)>;
+
 /// A game not in the list yet, being unpacked or installed.
 struct Unpacking {
 	id: String,
@@ -79,6 +162,11 @@ pub struct LibraryView {
 	art: HashMap<String, Art>,
 	unpacking: Vec<Unpacking>,
 	backups: HashMap<String, Vec<onlinefix_launcher_core::saves::Backup>>,
+	prefs: LibraryPrefs,
+	/// The game log shown in place of the games.
+	log: Option<game_log::GameLog>,
+	debug_channels: Entity<InputState>,
+	_log_poll: Task<()>,
 	_subscriptions: Vec<Subscription>,
 }
 
@@ -90,6 +178,20 @@ impl LibraryView {
 		cx: &mut Context<Self>,
 	) -> Self {
 		let search = cx.new(|cx| InputState::new(window, cx).placeholder(t!("lib.search")));
+		let debug_channels = cx.new(|cx| InputState::new(window, cx).placeholder(DEBUG_CHANNELS));
+		let log_poll = cx.spawn_in(window, async move |this, cx| {
+			loop {
+				cx.background_executor()
+					.timer(Duration::from_millis(400))
+					.await;
+				if this
+					.update_in(cx, |this, window, cx| this.poll_log(window, cx))
+					.is_err()
+				{
+					break;
+				}
+			}
+		});
 		let mut input = |placeholder: String, cx: &mut Context<Self>| {
 			cx.new(|cx| InputState::new(window, cx).placeholder(placeholder))
 		};
@@ -128,6 +230,9 @@ impl LibraryView {
 		});
 		let subscriptions = vec![
 			env_changes,
+			cx.subscribe_in(&debug_channels, window, |this, _, event, _, cx| {
+				this.channels_event(event, cx)
+			}),
 			cx.subscribe_in(&search, window, |_, _, event, _, cx| {
 				if matches!(event, InputEvent::Change) {
 					cx.notify();
@@ -155,6 +260,10 @@ impl LibraryView {
 			art: HashMap::new(),
 			unpacking: Vec::new(),
 			backups: HashMap::new(),
+			prefs: LibraryPrefs::default(),
+			log: None,
+			debug_channels,
+			_log_poll: log_poll,
 			games: Vec::new(),
 			protons: Vec::new(),
 			runs: HashMap::new(),
@@ -163,6 +272,128 @@ impl LibraryView {
 			search,
 			fields,
 			_subscriptions: subscriptions,
+		}
+	}
+
+	pub fn set_prefs(&mut self, prefs: LibraryPrefs) {
+		self.prefs = prefs;
+	}
+
+	pub fn prefs(&self) -> LibraryPrefs {
+		self.prefs
+	}
+
+	/// Picking the current key again flips the order.
+	fn set_sort(&mut self, sort: Sort, cx: &mut Context<Self>) {
+		if self.prefs.sort == sort {
+			self.prefs.descending = !self.prefs.descending;
+		} else {
+			self.prefs.sort = sort;
+			self.prefs.descending = sort.starts_descending();
+		}
+		cx.notify();
+	}
+
+	/// Saved right away, and put into the draft too so saving other edits
+	/// later doesn't undo it.
+	fn update_saved(&mut self, id: &str, apply: impl Fn(&mut Game), cx: &mut Context<Self>) {
+		let Some(mut game) = self.games.iter().find(|g| g.id == id).cloned() else {
+			return;
+		};
+		apply(&mut game);
+		if let Some(draft) = self.draft.as_mut().filter(|d| d.id == id) {
+			apply(draft);
+		}
+		self.engine.send(Command::UpdateGame(Box::new(game)));
+		cx.notify();
+	}
+
+	fn set_favorite(&mut self, id: &str, value: bool, cx: &mut Context<Self>) {
+		self.update_saved(id, |g| g.favorite = value, cx);
+	}
+
+	fn set_hidden(&mut self, id: &str, value: bool, window: &mut Window, cx: &mut Context<Self>) {
+		self.update_saved(id, |g| g.hidden = value, cx);
+		if value && !self.prefs.show_hidden && self.selected.as_deref() == Some(id) {
+			self.select(None, window, cx);
+		}
+	}
+
+	/// The right-click menu of a game card or row.
+	fn menu(
+		&self,
+		game: &Game,
+		cx: &Context<Self>,
+	) -> impl Fn(PopupMenu, &mut Window, &mut Context<PopupMenu>) -> PopupMenu + 'static {
+		let view = cx.entity().downgrade();
+		let id = game.id.clone();
+		let (favorite, hidden) = (game.favorite, game.hidden);
+		let running = self.runs.contains_key(&game.id);
+		move |menu, _, _| {
+			let item = |label: String, f: MenuAction| {
+				let view = view.clone();
+				PopupMenuItem::new(label).on_click(move |_, window, cx| {
+					let f = f.clone();
+					let _ = view.update(cx, move |this, cx| f(this, window, cx));
+				})
+			};
+			let id = id.clone();
+			let log_id = id.clone();
+			let play = {
+				let id = id.clone();
+				if running {
+					item(
+						t!("game.stop").into_owned(),
+						Rc::new(move |this, _, _| this.engine.send(Command::Stop(id.clone()))),
+					)
+				} else {
+					item(
+						t!("game.play").into_owned(),
+						Rc::new(move |this, _, _| this.launch(&id)),
+					)
+				}
+			};
+			let details = {
+				let id = id.clone();
+				item(
+					t!("lib.menu_details").into_owned(),
+					Rc::new(move |this, window, cx| this.select(Some(id.clone()), window, cx)),
+				)
+			};
+			let favorite_item = {
+				let id = id.clone();
+				item(
+					if favorite {
+						t!("lib.unfavorite")
+					} else {
+						t!("lib.favorite")
+					}
+					.into_owned(),
+					Rc::new(move |this, _, cx| this.set_favorite(&id, !favorite, cx)),
+				)
+			};
+			let hide_item = item(
+				if hidden {
+					t!("lib.unhide")
+				} else {
+					t!("lib.hide")
+				}
+				.into_owned(),
+				Rc::new(move |this, window, cx| this.set_hidden(&id, !hidden, window, cx)),
+			);
+			let log = {
+				let id = log_id.clone();
+				item(
+					t!("log.show").into_owned(),
+					Rc::new(move |this, window, cx| this.open_log(id.clone(), window, cx)),
+				)
+			};
+			menu.item(play)
+				.item(details)
+				.item(log)
+				.separator()
+				.item(favorite_item)
+				.item(hide_item)
 		}
 	}
 
@@ -183,6 +414,12 @@ impl LibraryView {
 			}
 			_ => {}
 		}
+		if let Some(log) = &self.log
+			&& !self.games.iter().any(|g| g.id == log.id)
+		{
+			self.log = None;
+		}
+		self.fill_channels(false, window, cx);
 		cx.notify();
 	}
 
@@ -233,6 +470,11 @@ impl LibraryView {
 	}
 
 	pub fn set_run(&mut self, id: String, state: RunState, cx: &mut Context<Self>) {
+		if state == RunState::Running
+			&& let Some(log) = self.log.as_mut().filter(|log| log.id == id)
+		{
+			log.reset();
+		}
 		if state == RunState::Stopped {
 			self.runs.remove(&id);
 		} else {
@@ -270,6 +512,11 @@ impl LibraryView {
 	pub fn select(&mut self, id: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
 		if let Some(id) = &id {
 			self.engine.send(Command::ListBackups(id.clone()));
+		}
+		if let Some(id) = &id
+			&& self.log.as_ref().is_some_and(|log| &log.id != id)
+		{
+			self.open_log(id.clone(), window, cx);
 		}
 		self.selected = id;
 		self.draft = self.saved().cloned();
@@ -365,19 +612,53 @@ impl LibraryView {
 		let mut games: Vec<&Game> = self
 			.games
 			.iter()
+			.filter(|g| self.prefs.show_hidden || !g.hidden)
 			.filter(|g| query.is_empty() || g.name.to_lowercase().contains(&query))
 			.collect();
-		// Recently played first, then the rest by name.
-		games.sort_by(|a, b| {
-			b.last_played
-				.cmp(&a.last_played)
-				.then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-		});
+		sort_games(&mut games, self.prefs.sort, self.prefs.descending);
 		games
+	}
+
+	/// What the empty grid or list says: nothing matches the search, or
+	/// everything left is hidden.
+	fn nothing_shown(&self, cx: &App) -> Div {
+		if self.search.read(cx).value().trim().is_empty() {
+			empty_state(
+				t!("lib.all_hidden").into_owned(),
+				t!("lib.all_hidden_hint").into_owned(),
+				cx,
+			)
+		} else {
+			empty_state(
+				t!("lib.no_match").into_owned(),
+				t!("lib.no_match_hint").into_owned(),
+				cx,
+			)
+		}
 	}
 
 	fn header(&self, cx: &mut Context<Self>) -> impl IntoElement {
 		let theme = cx.theme();
+		let LibraryPrefs {
+			sort,
+			descending,
+			layout,
+			show_hidden,
+		} = self.prefs;
+		let hidden = self.games.iter().filter(|g| g.hidden).count();
+		let view = cx.entity().downgrade();
+		let layout_button = |id: &'static str, value: Layout, icon: IconName, tip: String| {
+			Button::new(id)
+				.icon(Icon::new(icon))
+				.ghost()
+				.small()
+				.tooltip(tip)
+				.selected(layout == value)
+				.on_click(cx.listener(move |this, _, _, cx| {
+					this.prefs.layout = value;
+					cx.notify();
+				}))
+		};
 		h_flex()
 			.px_5()
 			.pt_4()
@@ -389,13 +670,99 @@ impl LibraryView {
 					.text_color(theme.muted_foreground)
 					.child(self.games.len().to_string()),
 			)
+			// The list sorts by its column headers; the grid has none.
+			.when(layout == Layout::Grid && !self.games.is_empty(), |bar| {
+				bar.child(
+					h_flex()
+						.gap_1()
+						.child(
+							Button::new("sort")
+								.label(sort.label())
+								.ghost()
+								.small()
+								.dropdown_caret(true)
+								.dropdown_menu(move |mut menu: PopupMenu, _, _| {
+									for choice in Sort::ALL {
+										let view = view.clone();
+										menu = menu.item(
+											PopupMenuItem::new(choice.label())
+												.checked(choice == sort)
+												.on_click(move |_, _, cx| {
+													let _ = view.update(cx, |this, cx| {
+														this.set_sort(choice, cx)
+													});
+												}),
+										);
+									}
+									menu
+								}),
+						)
+						.child(
+							Button::new("reverse")
+								.icon(Icon::new(if descending {
+									IconName::SortDescending
+								} else {
+									IconName::SortAscending
+								}))
+								.ghost()
+								.small()
+								.tooltip(t!("lib.reverse"))
+								.on_click(cx.listener(|this, _, _, cx| {
+									this.prefs.descending = !this.prefs.descending;
+									cx.notify();
+								})),
+						),
+				)
+			})
 			.child(div().flex_1())
+			.when(hidden > 0 || show_hidden, |bar| {
+				bar.child(
+					Button::new("show-hidden")
+						.icon(Icon::new(if show_hidden {
+							IconName::Eye
+						} else {
+							IconName::EyeOff
+						}))
+						.label(hidden.to_string())
+						.ghost()
+						.small()
+						.selected(show_hidden)
+						.tooltip(if show_hidden {
+							t!("lib.hidden_shown")
+						} else {
+							t!("lib.hidden_hidden")
+						})
+						.on_click(cx.listener(|this, _, window, cx| {
+							this.prefs.show_hidden = !this.prefs.show_hidden;
+							if !this.prefs.show_hidden && this.saved().is_some_and(|g| g.hidden) {
+								this.select(None, window, cx);
+							}
+							cx.notify();
+						})),
+				)
+			})
 			.child(
 				Input::new(&self.search)
 					.prefix(Icon::new(IconName::Search).small())
 					.cleanable(true)
 					.small()
 					.w(px(260.)),
+			)
+			.child(
+				h_flex()
+					.gap_1()
+					.child(layout_button(
+						"layout-grid",
+						Layout::Grid,
+						IconName::LayoutDashboard,
+						t!("lib.view_grid").into(),
+					))
+					.child(layout_button(
+						"layout-list",
+						Layout::List,
+						IconName::Menu,
+						t!("lib.view_list").into(),
+					)),
 			)
 			.child(self.add_button("add-game", true, cx))
 	}
@@ -468,8 +835,13 @@ impl Render for LibraryView {
 			)
 			.child(div().pt_2().child(self.add_button("add-first", false, cx)))
 			.into_any_element()
+		} else if let Some(log) = self.log_view(cx) {
+			log
 		} else {
-			self.grid(window, cx)
+			match self.prefs.layout {
+				Layout::Grid => self.grid(window, cx),
+				Layout::List => self.list(cx),
+			}
 		};
 		let details = self.details(window, cx);
 		v_flex().size_full().child(self.header(cx)).child(
@@ -481,5 +853,38 @@ impl Render for LibraryView {
 				.child(div().flex_1().min_w_0().h_full().child(body))
 				.children(details),
 		)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	// Not `super::*`: gpui's own `test` macro would come with it.
+	use super::{Game, Sort, sort_games};
+
+	#[test]
+	fn favorites_first_then_sort_then_name() {
+		let game = |name: &str, play: u64, added: u64, favorite: bool| Game {
+			name: name.into(),
+			play_seconds: play,
+			added,
+			favorite,
+			..Game::default()
+		};
+		let games = [
+			game("b", 10, 3, false),
+			game("A", 30, 1, false),
+			game("c", 10, 2, true),
+			game("d", 0, 4, false),
+		];
+		let order = |sort, descending| {
+			let mut list: Vec<&Game> = games.iter().collect();
+			sort_games(&mut list, sort, descending);
+			list.iter().map(|g| g.name.as_str()).collect::<Vec<_>>()
+		};
+		assert_eq!(order(Sort::Name, false), ["c", "A", "b", "d"]);
+		assert_eq!(order(Sort::Name, true), ["c", "d", "b", "A"]);
+		assert_eq!(order(Sort::PlayTime, true), ["c", "A", "b", "d"]);
+		assert_eq!(order(Sort::Added, true), ["c", "d", "b", "A"]);
+		assert_eq!(order(Sort::LastPlayed, true), ["c", "A", "b", "d"]);
 	}
 }

@@ -122,6 +122,8 @@ pub mod highlight {
 
 	pub struct LogHighlighter {
 		colors: SharedColors,
+		/// Wine and DXVK output (`0024:err:…`, `warn:  …`) instead of the app's own.
+		wine: bool,
 		/// Byte range of every line, newline included, and its level.
 		lines: Vec<(Range<usize>, Option<Level>)>,
 	}
@@ -130,8 +132,32 @@ pub mod highlight {
 		pub fn new(colors: SharedColors) -> Self {
 			Self {
 				colors,
+				wine: false,
 				lines: Vec::new(),
 			}
+		}
+
+		pub fn wine(colors: SharedColors) -> Self {
+			Self {
+				wine: true,
+				..Self::new(colors)
+			}
+		}
+	}
+
+	/// Wine writes `[time:]pid:tid:class:channel:…`, DXVK `class:  …`.
+	fn wine_level(head: &str) -> Option<Level> {
+		let class = |name: &str| {
+			head.starts_with(&format!("{name}:")) || head.contains(&format!(":{name}:"))
+		};
+		if class("err") {
+			Some(Level::Error)
+		} else if class("warn") {
+			Some(Level::Warn)
+		} else if class("fixme") || class("trace") {
+			Some(Level::Debug)
+		} else {
+			None
 		}
 	}
 
@@ -165,7 +191,9 @@ pub mod highlight {
 				// The fmt layer pads the level, e.g. "  WARN"; check only the line's start.
 				let head = text.slice_line(row).to_string();
 				let head = head.get(..head.len().min(48)).unwrap_or(&head);
-				let level = if head.contains(" ERROR ") {
+				let level = if self.wine {
+					wine_level(head)
+				} else if head.contains(" ERROR ") {
 					Some(Level::Error)
 				} else if head.contains(" WARN ") {
 					Some(Level::Warn)

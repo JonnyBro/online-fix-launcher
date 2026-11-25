@@ -5,12 +5,7 @@ impl LibraryView {
 		let theme = cx.theme().clone();
 		let games: Vec<Game> = self.visible(cx).into_iter().cloned().collect();
 		if games.is_empty() && self.unpacking.is_empty() {
-			return empty_state(
-				t!("lib.no_match").into_owned(),
-				t!("lib.no_match_hint").into_owned(),
-				cx,
-			)
-			.into_any_element();
+			return self.nothing_shown(cx).into_any_element();
 		}
 		let size = (CARD_WIDTH - 16., (CARD_WIDTH - 16.) * 1.5);
 		let pending = self.unpacking.iter().enumerate().map(|(ix, u)| {
@@ -83,6 +78,7 @@ impl LibraryView {
 				} else {
 					theme.muted
 				})
+				.when(game.hidden, |c| c.opacity(0.5))
 				.hover(|s| s.bg(theme.list_hover))
 				.cursor_pointer()
 				.on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
@@ -97,7 +93,17 @@ impl LibraryView {
 					let art = self.art.get(&game.id).cloned().unwrap_or_default();
 					cover(&game, art.grid.as_ref(), art.icon.as_ref(), size, &theme)
 				})
-				.child(div().truncate().child(game.name.clone()))
+				.child(
+					h_flex()
+						.gap_1p5()
+						.min_w_0()
+						.children(game.favorite.then(|| {
+							Icon::new(IconName::StarFill)
+								.xsmall()
+								.text_color(theme.warning)
+						}))
+						.child(div().min_w_0().truncate().child(game.name.clone())),
+				)
 				.child(
 					div()
 						.text_sm()
@@ -109,6 +115,7 @@ impl LibraryView {
 						})
 						.child(meta),
 				)
+				.context_menu(self.menu(&game, cx))
 		});
 		div()
 			.id("library-grid")

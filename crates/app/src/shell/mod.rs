@@ -173,7 +173,11 @@ impl Shell {
 			});
 		}
 
-		let library = cx.new(|cx| LibraryView::new(engine.clone(), paths.clone(), window, cx));
+		let library = cx.new(|cx| {
+			let mut view = LibraryView::new(engine.clone(), paths.clone(), window, cx);
+			view.set_prefs(ui.library);
+			view
+		});
 		let protons =
 			cx.new(|_| ProtonsView::new(engine.clone(), paths.protons_dir(), settings.clone()));
 		let settings_view =
@@ -252,6 +256,7 @@ impl Shell {
 			tab: Some(self.tab),
 			logs_open: self.logs_open,
 			scale: Some(crate::theme::scale(cx)),
+			library: self.library.read(cx).prefs(),
 		}
 		.save(&self.ui_path);
 	}
