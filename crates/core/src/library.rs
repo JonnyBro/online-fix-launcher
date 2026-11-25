@@ -1,6 +1,6 @@
 //! The games the user added, kept in `games.toml`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -52,6 +52,9 @@ pub struct Game {
 	pub fsr: bool,
 	#[serde(skip_serializing_if = "Gamescope::is_default")]
 	pub gamescope: Gamescope,
+	/// Bundled runtimes already installed into the prefix, by [`crate::redist::Redist::key`].
+	#[serde(skip_serializing_if = "BTreeSet::is_empty")]
+	pub redists_done: BTreeSet<String>,
 	/// The game's own Steam app id, for covers.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub real_app_id: Option<u32>,
@@ -150,6 +153,7 @@ impl Default for Game {
 			nvapi: false,
 			fsr: false,
 			gamescope: Gamescope::default(),
+			redists_done: BTreeSet::new(),
 			real_app_id: None,
 			fake_app_id: None,
 			play_seconds: 0,

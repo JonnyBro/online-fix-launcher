@@ -6,6 +6,7 @@ mod art;
 mod games;
 mod messages;
 mod protons;
+mod redist;
 mod run;
 
 use std::collections::HashMap;
@@ -109,6 +110,9 @@ struct State {
 	/// The game list couldn't be read; saving would lose it.
 	library_broken: bool,
 	running: HashMap<String, games::Running>,
+	/// Games whose prefix is getting runtimes installed; they don't launch meanwhile.
+	redists_busy: std::collections::HashSet<String>,
+	redists_done: mpsc::UnboundedSender<redist::RedistsDone>,
 	finished: mpsc::UnboundedSender<games::Finished>,
 	unpacked: mpsc::UnboundedSender<adding::AddStep>,
 	art: crate::art::ArtStore,

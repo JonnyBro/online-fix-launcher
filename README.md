@@ -35,6 +35,9 @@ run through Proton. Written in Rust with [gpui](https://gpui.rs) and
 - The game's log right in the window, live while it runs, and a switch to
   launch with Wine debug channels on.
 - Library sorting, grid or list view, favorites and hidden games.
+- Bundled runtimes (`_CommonRedist`: Visual C++, DirectX, .NET, XNA, PhysX,
+  Unreal prerequisites) found next to the game and installed into its prefix
+  with one button.
 - Prefix tools: winecfg, winetricks, registry editor, task manager, control
   panel, file explorer, command prompt.
 - Covers and banners come from Steam. With a SteamGridDB API key, SteamGridDB

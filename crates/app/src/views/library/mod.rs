@@ -2,6 +2,7 @@ mod details;
 mod game_log;
 mod grid;
 mod list;
+mod redists;
 
 use rust_i18n::t;
 use std::cell::Cell;
@@ -201,6 +202,10 @@ pub struct LibraryView {
 	backups: HashMap<String, Vec<onlinefix_launcher_core::saves::Backup>>,
 	prefs: LibraryPrefs,
 	installed: Installed,
+	redists: HashMap<String, Vec<onlinefix_launcher_core::redist::Redist>>,
+	/// Packages the user ticked or unticked; the rest are ticked unless installed.
+	redist_pick: HashMap<PathBuf, bool>,
+	redist_step: HashMap<String, (usize, usize)>,
 	/// The game log shown in place of the games.
 	log: Option<game_log::GameLog>,
 	debug_channels: Entity<InputState>,
@@ -336,6 +341,9 @@ impl LibraryView {
 			backups: HashMap::new(),
 			prefs: LibraryPrefs::default(),
 			installed: Installed::look(),
+			redists: HashMap::new(),
+			redist_pick: HashMap::new(),
+			redist_step: HashMap::new(),
 			log: None,
 			debug_channels,
 			_log_poll: log_poll,
@@ -587,6 +595,7 @@ impl LibraryView {
 	pub fn select(&mut self, id: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
 		if let Some(id) = &id {
 			self.engine.send(Command::ListBackups(id.clone()));
+			self.engine.send(Command::ListRedists(id.clone()));
 		}
 		if let Some(id) = &id
 			&& self.log.as_ref().is_some_and(|log| &log.id != id)

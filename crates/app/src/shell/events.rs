@@ -96,6 +96,12 @@ impl Shell {
 			Event::Backups { id, backups } => self
 				.library
 				.update(cx, |l, cx| l.set_backups(id, backups, cx)),
+			Event::Redists { id, found } => self
+				.library
+				.update(cx, |l, cx| l.set_redists(id, found, cx)),
+			Event::RedistInstalling { id, step } => self
+				.library
+				.update(cx, |l, cx| l.set_redist_step(id, step, cx)),
 			Event::ArtChanged(id) => self.library.update(cx, |l, cx| l.art_changed(id, cx)),
 			Event::ArtChoices { request, result } => {
 				if let Some(gallery) = self.gallery.as_ref().and_then(|g| g.upgrade())

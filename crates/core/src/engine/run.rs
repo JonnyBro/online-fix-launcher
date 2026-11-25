@@ -19,6 +19,7 @@ pub(super) async fn run(
 	let (finished_tx, mut finished_rx) = mpsc::unbounded_channel();
 	let (unpacked_tx, mut unpacked_rx) = mpsc::unbounded_channel();
 	let (protons_tx, mut protons_rx) = mpsc::unbounded_channel();
+	let (redists_tx, mut redists_rx) = mpsc::unbounded_channel();
 	let art = crate::art::ArtStore::new(paths.art_dir());
 	let mut state = State {
 		paths,
@@ -27,6 +28,8 @@ pub(super) async fn run(
 		library,
 		library_broken,
 		running: HashMap::new(),
+		redists_busy: Default::default(),
+		redists_done: redists_tx,
 		finished: finished_tx,
 		unpacked: unpacked_tx,
 		art,
@@ -49,6 +52,10 @@ pub(super) async fn run(
 			}
 			Some(step) = unpacked_rx.recv() => {
 				state.add_step(step);
+				continue;
+			}
+			Some(done) = redists_rx.recv() => {
+				state.redists_done(done);
 				continue;
 			}
 			Some(()) = protons_rx.recv() => {
@@ -96,6 +103,8 @@ pub(super) async fn run(
 				back_up,
 			} => state.remove_game(&id, delete_game_dir, delete_prefix, back_up),
 			Command::ListBackups(id) => state.list_backups(&id),
+			Command::ListRedists(id) => state.list_redists(&id),
+			Command::InstallRedists { id, paths } => state.install_redists(&id, paths),
 			Command::BackUpSaves(id) => state.back_up_saves(&id),
 			Command::RestoreSaves { id, backup } => state.restore_saves(&id, backup),
 			Command::DeleteBackup { id, backup } => state.delete_backup(&id, backup),

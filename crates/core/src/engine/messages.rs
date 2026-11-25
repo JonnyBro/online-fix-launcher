@@ -31,6 +31,13 @@ pub enum Command {
 		back_up: bool,
 	},
 	ListBackups(String),
+	/// Looks for bundled runtimes (`_CommonRedist` and the like) around the game.
+	ListRedists(String),
+	/// Runs the given installers, from the last `Redists`, in the game's prefix.
+	InstallRedists {
+		id: String,
+		paths: Vec<PathBuf>,
+	},
 	BackUpSaves(String),
 	RestoreSaves {
 		id: String,
@@ -210,6 +217,15 @@ pub enum Event {
 	Backups {
 		id: String,
 		backups: Vec<crate::saves::Backup>,
+	},
+	Redists {
+		id: String,
+		found: Vec<crate::redist::Redist>,
+	},
+	/// `Some((done, total))` while installing; `None` once it ended.
+	RedistInstalling {
+		id: String,
+		step: Option<(usize, usize)>,
 	},
 	ArtChoices {
 		request: u64,

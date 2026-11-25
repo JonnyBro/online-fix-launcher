@@ -302,6 +302,30 @@ game.gs_hint:
 game.auto:
   en: "auto"
   ru: "авто"
+redist.title:
+  en: "Bundled packages"
+  ru: "Распространяемые пакеты"
+redist.hint:
+  en: "The game came with runtimes it may need. Steam installs these on first launch; here it's one button."
+  ru: "Игра принесла с собой библиотеки, которые могут ей понадобиться. Steam ставит их при первом запуске, здесь это одна кнопка."
+redist.all_done:
+  en: "Everything found is installed into the prefix."
+  ru: "Всё найденное уже установлено в префикс."
+redist.done:
+  en: "installed"
+  ru: "установлен"
+redist.install:
+  en: "Install into prefix (%{n})"
+  ru: "Установить в префикс (%{n})"
+redist.installing:
+  en: "Installing %{n} of %{total}"
+  ru: "Установка %{n} из %{total}"
+redist.close_game:
+  en: "Close the game first"
+  ru: "Сначала закройте игру"
+redist.unreal:
+  en: "Unreal Engine prerequisites"
+  ru: "Компоненты Unreal Engine"
 game.settings:
   en: "Settings"
   ru: "Настройки"

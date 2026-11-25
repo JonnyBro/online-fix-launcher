@@ -187,6 +187,11 @@ pub fn plan(game: &Game, ctx: &Context) -> Result<Plan, LaunchError> {
 	})
 }
 
+/// Wine sees the Linux root as drive Z:.
+pub fn windows_path(path: &Path) -> String {
+	format!("Z:{}", path.display()).replace('/', "\\")
+}
+
 fn path_str(path: &Path) -> String {
 	path.to_string_lossy().into_owned()
 }

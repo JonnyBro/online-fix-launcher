@@ -26,6 +26,15 @@ err.proton_missing:
 err.tool_missing:
   en: "%{name} isn't installed; install it or turn its switch off in the game's settings"
   ru: "%{name} не установлен: установите его или выключите его галочку в настройках игры"
+err.redist:
+  en: "%{name}: some packages didn't install: %{list}"
+  ru: "%{name}: не все пакеты установились: %{list}"
+err.redist_busy:
+  en: "packages are being installed into the game's prefix; launch it once they're done"
+  ru: "в префикс игры ставятся пакеты, запустите её, когда они закончатся"
+redist.installed:
+  en: "%{name}: packages installed (%{n})"
+  ru: "%{name}: пакеты установлены (%{n})"
 err.bad_args:
   en: "can't read the arguments: %{args}"
   ru: "не удалось разобрать аргументы: %{args}"

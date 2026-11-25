@@ -295,6 +295,11 @@ impl State {
 		if self.running.contains_key(id) {
 			return;
 		}
+		if self.redists_busy.contains(id) {
+			self.sink
+				.emit(Event::Error(t!("err.redist_busy").into_owned()));
+			return;
+		}
 		if self.library.get(id).is_none() {
 			return;
 		}

@@ -51,7 +51,7 @@ async fn run_installer(
 	let status = tokio::process::Command::new(proton.script())
 		.arg("run")
 		.arg(exe)
-		.arg(format!("/DIR={}", windows_path(target)))
+		.arg(format!("/DIR={}", crate::launch::windows_path(target)))
 		.args(["/TASKS=", "/SILENT", "/SUPPRESSMSGBOXES"])
 		.current_dir(exe.parent().unwrap_or(Path::new("/")))
 		.env("STEAM_COMPAT_DATA_PATH", prefix)
@@ -71,11 +71,6 @@ async fn run_installer(
 		return Err(t!("err.installer_code", code = status.code().unwrap_or(-1)).into_owned());
 	}
 	Ok(())
-}
-
-/// Wine sees the Linux root as drive Z:.
-fn windows_path(path: &Path) -> String {
-	format!("Z:{}", path.display()).replace('/', "\\")
 }
 
 impl State {
@@ -460,7 +455,7 @@ mod tests {
 	#[test]
 	fn installer_paths() {
 		assert_eq!(
-			windows_path(Path::new("/mnt/games/My Game")),
+			crate::launch::windows_path(Path::new("/mnt/games/My Game")),
 			"Z:\\mnt\\games\\My Game"
 		);
 	}

@@ -19,6 +19,7 @@ impl LibraryView {
 				.label(t!("game.play"))
 				.icon(Icon::new(IconName::Play))
 				.primary()
+				.disabled(self.redist_step.contains_key(&id))
 				.on_click(cx.listener({
 					let id = id.clone();
 					move |this, _, _, _| this.launch(&id)
@@ -309,6 +310,7 @@ impl LibraryView {
 									},
 								)))
 								.child(folders)
+								.children(self.redists_section(&saved, cx))
 								.child(self.saves_section(&game, cx))
 								.child(self.settings_form(&game, cx))
 								.child(
