@@ -354,6 +354,136 @@ impl LibraryView {
 					}
 				}))
 		};
+		let installed = self.installed;
+		// A switch for a program that isn't installed says so; it still
+		// works as a setting, the launch just stops with an error.
+		let tool_toggle = |id: &'static str,
+		                   text: String,
+		                   present: bool,
+		                   checked: bool,
+		                   apply: fn(&mut Game, bool)| {
+			let text = if present {
+				text
+			} else {
+				t!("game.not_installed", name = text).into_owned()
+			};
+			toggle(id, text, checked, apply)
+		};
+		let size_pair = |caption: String, a: &Entity<InputState>, b: &Entity<InputState>| {
+			h_flex()
+				.gap_2()
+				.child(
+					div()
+						.w(px(110.))
+						.flex_shrink_0()
+						.text_sm()
+						.text_color(theme.muted_foreground)
+						.child(caption),
+				)
+				.child(Input::new(a).small().w(px(80.)))
+				.child(
+					div()
+						.text_sm()
+						.text_color(theme.muted_foreground)
+						.child("×"),
+				)
+				.child(Input::new(b).small().w(px(80.)))
+		};
+		let gamescope = game.gamescope.clone();
+		let wrappers = v_flex()
+			.gap_2()
+			.child(label(t!("game.wrappers").into()))
+			.child(tool_toggle(
+				"mangohud",
+				"MangoHud".into(),
+				installed.mangohud,
+				game.mangohud,
+				|g, v| g.mangohud = v,
+			))
+			.child(tool_toggle(
+				"gamemode",
+				"GameMode".into(),
+				installed.gamemode,
+				game.gamemode,
+				|g, v| g.gamemode = v,
+			))
+			.child(toggle(
+				"nvapi",
+				t!("game.nvapi").into(),
+				game.nvapi,
+				|g, v| g.nvapi = v,
+			))
+			.child(
+				Checkbox::new("fsr")
+					.label(t!("game.fsr").into_owned())
+					.checked(game.fsr)
+					.tooltip(if gamescope.enabled {
+						t!("game.fsr_gamescope_hint")
+					} else {
+						t!("game.fsr_hint")
+					})
+					.on_click(cx.listener(|this, checked: &bool, _, cx| {
+						if let Some(draft) = &mut this.draft {
+							draft.fsr = *checked;
+							cx.notify();
+						}
+					})),
+			)
+			.child(tool_toggle(
+				"gamescope",
+				"gamescope".into(),
+				installed.gamescope,
+				gamescope.enabled,
+				|g, v| g.gamescope.enabled = v,
+			))
+			.when(gamescope.enabled, |section| {
+				section.child(
+					v_flex()
+						.gap_2()
+						.pl_6()
+						.child(size_pair(
+							t!("game.gs_output").into(),
+							&self.fields.gs_width,
+							&self.fields.gs_height,
+						))
+						.child(size_pair(
+							t!("game.gs_game").into(),
+							&self.fields.gs_game_width,
+							&self.fields.gs_game_height,
+						))
+						.child(
+							h_flex()
+								.gap_2()
+								.child(
+									div()
+										.w(px(110.))
+										.flex_shrink_0()
+										.text_sm()
+										.text_color(theme.muted_foreground)
+										.child(t!("game.gs_refresh").into_owned()),
+								)
+								.child(Input::new(&self.fields.gs_refresh).small().w(px(80.)))
+								.child(
+									div()
+										.text_sm()
+										.text_color(theme.muted_foreground)
+										.child(t!("game.hz").into_owned()),
+								),
+						)
+						.child(toggle(
+							"gs-fullscreen",
+							t!("game.gs_fullscreen").into(),
+							gamescope.fullscreen,
+							|g, v| g.gamescope.fullscreen = v,
+						))
+						.child(
+							div()
+								.text_xs()
+								.text_color(theme.muted_foreground)
+								.child(t!("game.gs_hint").into_owned()),
+						),
+				)
+			});
 		let current = game.proton.clone();
 		let current_label = match &current {
 			Some(dir) => self
@@ -447,6 +577,7 @@ impl LibraryView {
 							.child(t!("game.env_hint").into_owned()),
 					),
 			)
+			.child(wrappers)
 			.child(
 				v_flex()
 					.gap_2()

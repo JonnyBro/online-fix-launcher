@@ -120,6 +120,43 @@ struct Fields {
 	overrides: Entity<InputState>,
 	prefix: Entity<InputState>,
 	env: Entity<TextareaState>,
+	gs_width: Entity<InputState>,
+	gs_height: Entity<InputState>,
+	gs_game_width: Entity<InputState>,
+	gs_game_height: Entity<InputState>,
+	gs_refresh: Entity<InputState>,
+}
+
+/// Which of the programs the wrapper switches need are installed.
+#[derive(Clone, Copy)]
+struct Installed {
+	mangohud: bool,
+	gamemode: bool,
+	gamescope: bool,
+}
+
+impl Installed {
+	fn look() -> Self {
+		let has = |name| onlinefix_launcher_core::archive::which(name).is_some();
+		Self {
+			mangohud: has("mangohud"),
+			gamemode: has("gamemoderun"),
+			gamescope: has("gamescope"),
+		}
+	}
+}
+
+/// A size field: empty or not a number means "let gamescope pick".
+fn parse_size(text: &str) -> u32 {
+	text.trim().parse().unwrap_or(0)
+}
+
+fn size_text(value: u32) -> String {
+	if value == 0 {
+		String::new()
+	} else {
+		value.to_string()
+	}
 }
 
 #[derive(Default, Clone)]
@@ -163,6 +200,7 @@ pub struct LibraryView {
 	unpacking: Vec<Unpacking>,
 	backups: HashMap<String, Vec<onlinefix_launcher_core::saves::Backup>>,
 	prefs: LibraryPrefs,
+	installed: Installed,
 	/// The game log shown in place of the games.
 	log: Option<game_log::GameLog>,
 	debug_channels: Entity<InputState>,
@@ -192,6 +230,11 @@ impl LibraryView {
 				}
 			}
 		});
+		let env = cx.new(|cx| {
+			TextareaState::new(window, cx)
+				.rows(3)
+				.placeholder("DXVK_HUD=fps\nDXVK_FRAME_RATE=60")
+		});
 		let mut input = |placeholder: String, cx: &mut Context<Self>| {
 			cx.new(|cx| InputState::new(window, cx).placeholder(placeholder))
 		};
@@ -201,11 +244,12 @@ impl LibraryView {
 			args_after: input(t!("game.args_after_hint").into_owned(), cx),
 			overrides: input(t!("game.overrides_hint").into_owned(), cx),
 			prefix: input(t!("add.prefix_default").into_owned(), cx),
-			env: cx.new(|cx| {
-				TextareaState::new(window, cx)
-					.rows(3)
-					.placeholder("DXVK_HUD=fps\nPROTON_ENABLE_NVAPI=1")
-			}),
+			env,
+			gs_width: input(t!("game.auto").into_owned(), cx),
+			gs_height: input(t!("game.auto").into_owned(), cx),
+			gs_game_width: input(t!("game.auto").into_owned(), cx),
+			gs_game_height: input(t!("game.auto").into_owned(), cx),
+			gs_refresh: input(t!("game.auto").into_owned(), cx),
 		};
 		let edit = |input: &Entity<InputState>,
 		            apply: fn(&mut Game, String),
@@ -243,6 +287,36 @@ impl LibraryView {
 			edit(&fields.args_after, |g, v| g.args_after = v, window, cx),
 			edit(&fields.overrides, |g, v| g.extra_overrides = v, window, cx),
 			edit(
+				&fields.gs_width,
+				|g, v| g.gamescope.width = parse_size(&v),
+				window,
+				cx,
+			),
+			edit(
+				&fields.gs_height,
+				|g, v| g.gamescope.height = parse_size(&v),
+				window,
+				cx,
+			),
+			edit(
+				&fields.gs_game_width,
+				|g, v| g.gamescope.game_width = parse_size(&v),
+				window,
+				cx,
+			),
+			edit(
+				&fields.gs_game_height,
+				|g, v| g.gamescope.game_height = parse_size(&v),
+				window,
+				cx,
+			),
+			edit(
+				&fields.gs_refresh,
+				|g, v| g.gamescope.refresh = parse_size(&v),
+				window,
+				cx,
+			),
+			edit(
 				&fields.prefix,
 				|g, v| {
 					let v = v.trim();
@@ -261,6 +335,7 @@ impl LibraryView {
 			unpacking: Vec::new(),
 			backups: HashMap::new(),
 			prefs: LibraryPrefs::default(),
+			installed: Installed::look(),
 			log: None,
 			debug_channels,
 			_log_poll: log_poll,
@@ -543,6 +618,17 @@ impl LibraryView {
 			(&self.fields.args_before, game.args_before),
 			(&self.fields.args_after, game.args_after),
 			(&self.fields.overrides, game.extra_overrides),
+			(&self.fields.gs_width, size_text(game.gamescope.width)),
+			(&self.fields.gs_height, size_text(game.gamescope.height)),
+			(
+				&self.fields.gs_game_width,
+				size_text(game.gamescope.game_width),
+			),
+			(
+				&self.fields.gs_game_height,
+				size_text(game.gamescope.game_height),
+			),
+			(&self.fields.gs_refresh, size_text(game.gamescope.refresh)),
 			(
 				&self.fields.prefix,
 				game.prefix

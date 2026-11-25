@@ -331,6 +331,10 @@ impl State {
 			fail(launch::LaunchError::ProtonMissing.to_string());
 			return;
 		};
+		if let Some(e) = launch::missing_tools(&game) {
+			fail(e.to_string());
+			return;
+		}
 		let runtime = match (game.steam_runtime, proton.runtime_app_id) {
 			(true, Some(app_id)) => {
 				let run = steam::runtime(&libraries, app_id);

@@ -28,9 +28,13 @@ run through Proton. Written in Rust with [gpui](https://gpui.rs) and
   checked against their SHA-512.
 - The Steam Linux Runtime each Proton build asks for in its manifest. If
   Steam isn't running, the launcher starts it in the tray before a game.
-- Per-game settings: Proton build, prefix, arguments, a wrapper like
-  `gamemoderun`, extra DLL overrides, environment variables, Steam overlay,
-  Steam Linux Runtime, native Wayland, WineD3D.
+- Per-game settings: Proton build, prefix, arguments, a wrapper command,
+  extra DLL overrides, environment variables, Steam overlay, Steam Linux
+  Runtime, native Wayland, WineD3D. Switches for MangoHud, GameMode,
+  gamescope (with its resolution), NVAPI and FSR.
+- The game's log right in the window, live while it runs, and a switch to
+  launch with Wine debug channels on.
+- Library sorting, grid or list view, favorites and hidden games.
 - Prefix tools: winecfg, winetricks, registry editor, task manager, control
   panel, file explorer, command prompt.
 - Covers and banners come from Steam. With a SteamGridDB API key, SteamGridDB

@@ -38,6 +38,20 @@ pub struct Game {
 	pub wayland: bool,
 	pub steam_overlay: bool,
 	pub steam_runtime: bool,
+	/// The overlay, as a Vulkan layer (`MANGOHUD=1`).
+	#[serde(skip_serializing_if = "is_false")]
+	pub mangohud: bool,
+	/// Run through `gamemoderun`.
+	#[serde(skip_serializing_if = "is_false")]
+	pub gamemode: bool,
+	/// DLSS and Reflex on NVIDIA cards (`PROTON_ENABLE_NVAPI=1`).
+	#[serde(skip_serializing_if = "is_false")]
+	pub nvapi: bool,
+	/// AMD FSR 1 upscaling: gamescope's when it's on, Proton's otherwise.
+	#[serde(skip_serializing_if = "is_false")]
+	pub fsr: bool,
+	#[serde(skip_serializing_if = "Gamescope::is_default")]
+	pub gamescope: Gamescope,
 	/// The game's own Steam app id, for covers.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub real_app_id: Option<u32>,
@@ -59,6 +73,52 @@ pub struct Game {
 	/// Left out of the library unless hidden games are shown.
 	#[serde(skip_serializing_if = "is_false")]
 	pub hidden: bool,
+}
+
+/// Sizes kept while it's off, so turning it back on needs no retyping.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Gamescope {
+	pub enabled: bool,
+	/// The size of gamescope's window or screen, `-W`/`-H`; 0 leaves it to gamescope.
+	pub width: u32,
+	pub height: u32,
+	/// The size the game renders at, `-w`/`-h`; smaller than the output upscales.
+	pub game_width: u32,
+	pub game_height: u32,
+	/// `-r`; 0 leaves it to gamescope.
+	pub refresh: u32,
+	pub fullscreen: bool,
+}
+
+impl Gamescope {
+	fn is_default(&self) -> bool {
+		*self == Self::default()
+	}
+
+	/// `gamescope` and its options, up to the `--` before the game.
+	pub fn command(&self, fsr: bool) -> Vec<String> {
+		let mut args = vec!["gamescope".to_owned()];
+		let mut pair = |flag: &str, value: u32| {
+			if value > 0 {
+				args.push(flag.to_owned());
+				args.push(value.to_string());
+			}
+		};
+		pair("-W", self.width);
+		pair("-H", self.height);
+		pair("-w", self.game_width);
+		pair("-h", self.game_height);
+		pair("-r", self.refresh);
+		if self.fullscreen {
+			args.push("-f".into());
+		}
+		if fsr {
+			args.extend(["-F".into(), "fsr".into()]);
+		}
+		args.push("--".into());
+		args
+	}
 }
 
 /// What Proton itself turns on with `PROTON_LOG=1`.
@@ -85,6 +145,11 @@ impl Default for Game {
 			wayland: false,
 			steam_overlay: false,
 			steam_runtime: true,
+			mangohud: false,
+			gamemode: false,
+			nvapi: false,
+			fsr: false,
+			gamescope: Gamescope::default(),
 			real_app_id: None,
 			fake_app_id: None,
 			play_seconds: 0,

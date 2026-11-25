@@ -23,6 +23,9 @@ err.exe_missing:
 err.proton_missing:
   en: "no Proton build to run the game with"
   ru: "нет сборки Proton, чтобы запустить игру"
+err.tool_missing:
+  en: "%{name} isn't installed; install it or turn its switch off in the game's settings"
+  ru: "%{name} не установлен: установите его или выключите его галочку в настройках игры"
 err.bad_args:
   en: "can't read the arguments: %{args}"
   ru: "не удалось разобрать аргументы: %{args}"

@@ -263,6 +263,45 @@ log.empty_hint:
 log.empty_running:
   en: "The game is starting; output shows up here in a moment."
   ru: "Игра запускается, вывод появится здесь через мгновение."
+game.wrappers:
+  en: "Overlays and wrappers"
+  ru: "Оверлеи и обёртки"
+game.not_installed:
+  en: "%{name} (not installed)"
+  ru: "%{name} (не установлен)"
+game.nvapi:
+  en: "NVAPI: DLSS and Reflex on NVIDIA"
+  ru: "NVAPI: DLSS и Reflex на NVIDIA"
+game.fsr:
+  en: "AMD FSR upscaling"
+  ru: "Масштабирование AMD FSR"
+game.fsr_hint:
+  en: "Proton's FSR (WINE_FULLSCREEN_FSR=1): needs a build that has it, such as GE-Proton, and the game in fullscreen at a resolution below the screen's."
+  ru: "FSR из Proton (WINE_FULLSCREEN_FSR=1): нужна сборка с его поддержкой, например GE-Proton, и игра в полноэкранном режиме с разрешением ниже экранного."
+game.fsr_gamescope_hint:
+  en: "gamescope's FSR (-F fsr): upscales from the game's resolution to the output's below."
+  ru: "FSR из gamescope (-F fsr): масштабирует из разрешения игры в разрешение вывода, заданные ниже."
+game.gs_output:
+  en: "Output"
+  ru: "Вывод"
+game.gs_game:
+  en: "Game renders at"
+  ru: "Игра рисует в"
+game.gs_refresh:
+  en: "Refresh rate"
+  ru: "Частота"
+game.hz:
+  en: "Hz"
+  ru: "Гц"
+game.gs_fullscreen:
+  en: "Fullscreen"
+  ru: "Во весь экран"
+game.gs_hint:
+  en: "Empty fields are left to gamescope."
+  ru: "Пустые поля gamescope выберет сам."
+game.auto:
+  en: "auto"
+  ru: "авто"
 game.settings:
   en: "Settings"
   ru: "Настройки"
@@ -279,8 +318,8 @@ game.args_before:
   en: "Run through"
   ru: "Запускать через"
 game.args_before_hint:
-  en: "gamemoderun mangohud"
-  ru: "gamemoderun mangohud"
+  en: "obs-gamecapture"
+  ru: "obs-gamecapture"
 game.extra_overrides:
   en: "Extra DLL overrides"
   ru: "Дополнительные DLL overrides"

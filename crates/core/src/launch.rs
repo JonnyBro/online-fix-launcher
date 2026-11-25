@@ -26,6 +26,19 @@ pub enum LaunchError {
 	ProtonMissing,
 	#[error("{}", t!("err.bad_args", args = .0))]
 	BadArgs(String),
+	#[error("{}", t!("err.tool_missing", name = .0))]
+	ToolMissing(&'static str),
+}
+
+/// Programs the game's switches run it through that aren't installed.
+pub fn missing_tools(game: &Game) -> Option<LaunchError> {
+	[
+		(game.gamemode, "gamemoderun"),
+		(game.gamescope.enabled, "gamescope"),
+	]
+	.into_iter()
+	.find(|&(on, name)| on && crate::archive::which(name).is_none())
+	.map(|(_, name)| LaunchError::ToolMissing(name))
 }
 
 /// What the plan needs besides the game.
@@ -76,7 +89,14 @@ pub fn plan(game: &Game, ctx: &Context) -> Result<Plan, LaunchError> {
 	let words =
 		|text: &str| shell_words::split(text).map_err(|_| LaunchError::BadArgs(text.to_owned()));
 
-	let mut command: Vec<String> = words(&game.args_before)?;
+	let mut command: Vec<String> = Vec::new();
+	if game.gamemode {
+		command.push("gamemoderun".into());
+	}
+	if game.gamescope.enabled {
+		command.extend(game.gamescope.command(game.fsr));
+	}
+	command.extend(words(&game.args_before)?);
 	if let Some(run) = &ctx.runtime {
 		command.push(path_str(run));
 		command.push("--".into());
@@ -123,6 +143,15 @@ pub fn plan(game: &Game, ctx: &Context) -> Result<Plan, LaunchError> {
 	}
 	if game.wayland {
 		env.push(("PROTON_ENABLE_WAYLAND".into(), "1".into()));
+	}
+	if game.mangohud {
+		env.push(("MANGOHUD".into(), "1".into()));
+	}
+	if game.nvapi {
+		env.push(("PROTON_ENABLE_NVAPI".into(), "1".into()));
+	}
+	if game.fsr && !game.gamescope.enabled {
+		env.push(("WINE_FULLSCREEN_FSR".into(), "1".into()));
 	}
 	if game.steam_overlay {
 		let preload = ctx
@@ -327,6 +356,62 @@ mod tests {
 			)
 		);
 		assert_eq!(env(&plan, "SteamOverlayGameId"), Some("1234"));
+	}
+
+	#[test]
+	fn wrappers() {
+		let (dir, mut game, proton) = setup();
+		game.steam_runtime = false;
+		game.args_before = "obs-gamecapture".into();
+		game.gamemode = true;
+		game.mangohud = true;
+		game.nvapi = true;
+		game.fsr = true;
+		let ctx = Context {
+			proton: &proton,
+			prefix: dir.path().join("pfx"),
+			steam_root: Some("/steam".into()),
+			runtime: Some("/slr/run".into()),
+			wine_debug: None,
+			ld_preload: None,
+		};
+		let without = plan(&game, &ctx).unwrap();
+		assert_eq!(without.program, "gamemoderun");
+		assert_eq!(&without.args[..2], ["obs-gamecapture", "/slr/run"]);
+		assert_eq!(env(&without, "MANGOHUD"), Some("1"));
+		assert_eq!(env(&without, "PROTON_ENABLE_NVAPI"), Some("1"));
+		assert_eq!(env(&without, "WINE_FULLSCREEN_FSR"), Some("1"));
+
+		game.gamescope = crate::library::Gamescope {
+			enabled: true,
+			width: 2560,
+			height: 1440,
+			game_width: 1280,
+			game_height: 720,
+			refresh: 0,
+			fullscreen: true,
+		};
+		let with = plan(&game, &ctx).unwrap();
+		assert_eq!(
+			&with.args[..13],
+			[
+				"gamescope",
+				"-W",
+				"2560",
+				"-H",
+				"1440",
+				"-w",
+				"1280",
+				"-h",
+				"720",
+				"-f",
+				"-F",
+				"fsr",
+				"--"
+			]
+		);
+		assert_eq!(&with.args[13..15], ["obs-gamecapture", "/slr/run"]);
+		assert_eq!(env(&with, "WINE_FULLSCREEN_FSR"), None);
 	}
 
 	#[test]
